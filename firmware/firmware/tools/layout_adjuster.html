@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>ESP32 E-Ink Layout Adjuster (400x300 1bpp)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: monospace; background: #1a1a2e; color: #eee; display: flex; }
+#canvas-panel { width: 420px; padding: 10px; }
+#canvas { background: #fff; border: 2px solid #0af; cursor: crosshair; }
+#info-panel { width: 300px; padding: 10px; background: #16213e; overflow-y: auto; height: 100vh; }
+#log-panel { flex: 1; padding: 10px; background: #0f0f23; overflow-y: auto; height: 100vh; }
+h2 { color: #0af; margin-bottom: 10px; font-size: 14px; }
+.page-btn { padding: 5px 10px; margin: 2px; background: #0af; color: #fff; border: none; cursor: pointer; }
+.page-btn.active { background: #f0a; }
+.component-item { padding: 5px; margin: 2px 0; background: #2a2a4e; border: 1px solid #0af; cursor: pointer; }
+.component-item.selected { background: #4a4a6e; border-color: #f0a; }
+.info-row { font-size: 12px; margin: 3px 0; }
+.info-row label { color: #888; }
+.info-row input { width: 60px; background: #333; color: #0af; border: 1px solid #555; padding: 2px; }
+.log-entry { padding: 5px; margin: 3px 0; background: #2a3a4e; border-left: 3px solid #0af; font-size: 11px; }
+.log-entry .comment { color: #f0a; margin-top: 3px; }
+#export-btn { position: fixed; bottom: 10px; right: 10px; padding: 10px; background: #f0a; color: #fff; }
+.comment-input { width: 100%; margin-top: 5px; background: #333; color: #fff; border: 1px solid #555; padding: 3px; }
+</style>
+</head>
+<body>
+<div id="canvas-panel">
+<h2>400x300 E-Ink Simulator</h2>
+<div id="page-buttons"></div>
+<canvas id="canvas" width="400" height="300"></canvas>
+<div id="component-list"></div>
+</div>
+<div id="info-panel">
+<h2>Selected Component</h2>
+<div id="selected-info">
+<p>Click a component to select</p>
+</div>
+<div id="adjust-controls">
+<h2>Adjust (Arrow Keys)</h2>
+<p>Arrow: Move ±1px | Shift+Arrow: ±5px</p>
+<p>Ctrl+Arrow: Size ±1px | Ctrl+Shift: ±5px</p>
+</div>
+<div id="comment-section">
+<h2>Comment</h2>
+<textarea id="comment-input" placeholder="Why this adjustment..." rows="3"></textarea>
+</div>
+</div>
+<div id="log-panel">
+<h2>Adjustment Log</h2>
+<div id="log-list"></div>
+<button id="export-btn">Export JSON</button>
+</div>
+
+<script>
+// ============================================================
+// Style constants from rawdraw/style.h
+// ============================================================
+const Style = {
+kSpacingXXS: 2, kSpacingXS: 4, kSpacingSM: 6, kSpacingMD: 8,
+kSpacingLG: 12, kSpacingXL: 16, kSpacingXXL: 24,
+kBorderRadiusSM: 4, kBorderRadiusMD: 8, kBorderRadiusLG: 12,
+kStatusBarHeight: 22, kStatusBarPadding: 4,
+kFooterBarHeight: 22, kVisualTextOffset: 1,
+kBubblePadding: 8, kBubbleMargin: 24, kBubbleMaxWidthPct: 80,
+kBubbleRadius: 8, kBubbleLineSpacing: 2, kBubbleGap: 4,
+kScrollbarWidth: 3, kScrollbarMinH: 20, kScrollMargin: 4,
+kContentTop: 28, kContentBottom: 295
+};
+
+// ============================================================
+// Font metrics from SourceHanSansSC_Regular_slim
+// ============================================================
+const Fonts = {
+slim: { line_height: 16, base_line: 2, name: 'SourceHanSansSC_Regular_slim' },
+medium: { line_height: 20, base_line: 3, name: 'SourceHanSansSC_Medium_slim' }
+};
+
+// ============================================================
+// Core functions from layout_utils.cc
+// ============================================================
+function CalcBaselineY(font, center_y, visual_offset = 0) {
+if (!font) return center_y + visual_offset;
+return center_y + font.base_line - Math.floor(font.line_height / 2) + visual_offset;
+}
+
+function TopYFromBaseline(font, baseline_y) {
+if (!font) return baseline_y;
+return baseline_y - font.base_line;
+}
+
+function CenterTextTopY(font, box_height, optical_nudge = 0) {
+if (!font) return optical_nudge;
+return Math.max(0, Math.floor((box_height - font.line_height) / 2) + optical_nudge);
+}
+
+// ============================================================
+// Drawing primitives
+// ============================================================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = '#fff';
+ctx.fillRect(0, 0, 400, 300);
+
+let components = []; // All drawn components with their params
+let selectedIdx = -1;
+let currentPage = 'chat';
+let adjustmentLog = [];
+
+function clearCanvas() {
+ctx.fillStyle = '#fff';
+ctx.fillRect(0, 0, 400, 300);
+}
+
+function drawRect(x, y, w, h, fill = '#fff', stroke = '#000', strokeWidth = 1) {
+ctx.fillStyle = fill;
+ctx.fillRect(x, y, w, h);
+if (strokeWidth > 0) {
+ctx.strokeStyle = stroke;
+ctx.lineWidth = strokeWidth;
+ctx.strokeRect(x, y, w, h);
+}
+components.push({ type: 'rect', x, y, w, h, fill, stroke, strokeWidth, page: currentPage });
+}
+
+function drawText(x, y, text, font = Fonts.slim, color = '#000') {
+ctx.fillStyle = color;
+ctx.font = `${font.line_height}px monospace`;
+ctx.fillText(text, x, y);
+const tw = ctx.measureText(text).width;
+components.push({ type: 'text', x, y, text, font, color, tw, page: currentPage });
+}
+
+function drawHLine(y, x1, x2, color = '#000') {
+ctx.strokeStyle = color;
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(x1, y);
+ctx.lineTo(x2, y);
+ctx.stroke();
+components.push({ type: 'hline', y, x1, x2, color, page: currentPage });
+}
+
+function drawVLine(x, y1, y2, color = '#000') {
+ctx.strokeStyle = color;
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(x, y1);
+ctx.lineTo(x, y2);
+ctx.stroke();
+components.push({ type: 'vline', x, y1, y2, color, page: currentPage });
+}
+
+function drawRoundRect(x, y, w, h, radius, fill, stroke, strokeWidth) {
+ctx.beginPath();
+ctx.roundRect(x, y, w, h, radius);
+ctx.fillStyle = fill;
+ctx.fill();
+if (strokeWidth > 0) {
+ctx.strokeStyle = stroke;
+ctx.lineWidth = strokeWidth;
+ctx.stroke();
+}
+components.push({ type: 'roundrect', x, y, w, h, radius, fill, stroke, strokeWidth, page: currentPage });
+}
+
+// ============================================================
+// Page renderers (from C++ code)
+// ============================================================
+
+function renderChatPage() {
+clearCanvas();
+components = [];
+currentPage = 'chat';
+
+// From chat_renderer.cc constants
+const kChatContentY = Style.kStatusBarHeight + 26; // = 48
+const kChatInputY = 244;
+const kChatInputH = 42;
+const kChatSendW = 68;
+const kChatInputGap = 10;
+
+// Content area background
+drawRect(0, Style.kStatusBarHeight, 400, 300 - Style.kStatusBarHeight);
+
+// Input box (line 238-239 in chat_renderer.cc)
+const inputBoxX = 42;
+const inputBoxW = 400 - 42 - kChatSendW - kChatInputGap - 16;
+drawRoundRect(inputBoxX, kChatInputY, inputBoxW, kChatInputH, Style.kBorderRadiusMD, '#fff', '#000', 1);
+
+// Input hint text (line 250-253)
+const inputHint = '按住BOOT开始说话';
+const font = Fonts.slim;
+const center_y = kChatInputY + Math.floor(kChatInputH / 2);
+const baseline = CalcBaselineY(font, center_y, Style.kVisualTextOffset);
+const top_y = TopYFromBaseline(font, baseline);
+drawText(inputBoxX + 12, top_y, inputHint, font, '#000');
+
+// Send button (line 255-256)
+const sendBoxX = inputBoxX + inputBoxW + kChatInputGap;
+drawRoundRect(sendBoxX, kChatInputY, kChatSendW, kChatInputH, Style.kBorderRadiusMD, '#fff', '#000', 1);
+
+const actionText = '发送';
+const actionW = ctx.measureText(actionText).width;
+const sendCenterY = kChatInputY + Math.floor(kChatInputH / 2);
+const sendBaseline = CalcBaselineY(font, sendCenterY, Style.kVisualTextOffset);
+const sendTopY = TopYFromBaseline(font, sendBaseline);
+drawText(sendBoxX + Math.floor((kChatSendW - actionW) / 2), sendTopY, actionText, font, '#000');
+
+// Status bar (simulated)
+drawHLine(Style.kStatusBarHeight - 1, 0, 399, '#000');
+
+updateComponentList();
+}
+
+function renderSettingsPage() {
+clearCanvas();
+components = [];
+currentPage = 'settings';
+
+// From settings_renderer.cc constants
+const kSettingsNavDividerX = 90;
+const kSettingsNavItemH = 44;
+const kSettingsTableRowH = 36;
+const kSettingsTableTop = Style.kStatusBarHeight + 38;
+
+// Body background
+drawRect(0, Style.kStatusBarHeight, 400, 300 - Style.kStatusBarHeight);
+
+// Vertical divider
+drawVLine(kSettingsNavDividerX, Style.kStatusBarHeight + 34, 299, '#000');
+
+// Navigation items (left side)
+const navTop = Style.kStatusBarHeight + 42;
+const navItems = ['系统', '显示', '关于'];
+const font = Fonts.slim;
+
+for (let i = 0; i < navItems.length; i++) {
+const sy = navTop + i * kSettingsNavItemH;
+const selected = (i === 0);
+const navPillX = 16;
+const navPillW = kSettingsNavDividerX - 26;
+const navPillH = 28;
+const navPillY = sy + Math.floor((kSettingsNavItemH - navPillH) / 2);
+
+if (selected) {
+drawRoundRect(navPillX, navPillY, navPillW, navPillH, Style.kBorderRadiusMD, '#000', '#000', 0);
+}
+
+const label = navItems[i];
+const labelW = ctx.measureText(label).width;
+const labelX = navPillX + Math.floor((navPillW - labelW) / 2);
+const centerY = sy + Math.floor(kSettingsNavItemH / 2);
+const baseline = CalcBaselineY(font, centerY, 0);
+const topY = TopYFromBaseline(font, baseline);
+drawText(Math.max(2, labelX), Math.max(Style.kStatusBarHeight + 2, topY), label, font, selected ? '#fff' : '#000');
+}
+
+// Settings rows (right side)
+const contentX = kSettingsNavDividerX + 16;
+const contentRight = 380;
+const rowH = kSettingsTableRowH;
+const rows = [
+{ label: '音量', value: '80%' },
+{ label: '亮度', value: '50%' },
+{ label: '电池方向', value: '横向' }
+];
+
+let y = kSettingsTableTop;
+for (let i = 0; i < rows.length; i++) {
+const row = rows[i];
+const centerY = y + Math.floor(rowH / 2);
+const baseline = CalcBaselineY(font, centerY, 0);
+const topY = TopYFromBaseline(font, baseline);
+
+drawText(contentX, topY, row.label, font, '#000');
+drawText(contentX + 112, topY, row.value, font, '#000');
+drawHLine(y + rowH - 1, contentX, contentRight, '#000');
+y += rowH;
+}
+
+updateComponentList();
+}
+
+function renderTodoPage() {
+clearCanvas();
+components = [];
+currentPage = 'todo';
+
+const kTodoListY = Style.kStatusBarHeight + 30;
+const kTodoItemH = 32;
+const kTodoFooterY = 270;
+
+drawRect(0, Style.kStatusBarHeight, 400, 300 - Style.kStatusBarHeight);
+
+// Sample todo items
+const items = [
+{ text: '完成固件升级', done: true },
+{ text: '修复天气显示', done: false },
+{ text: '优化电池续航', done: false }
+];
+
+const font = Fonts.slim;
+let y = kTodoListY;
+const contentX = 28;
+
+for (let i = 0; i < items.length; i++) {
+const item = items[i];
+const centerY = y + Math.floor(kTodoItemH / 2);
+const baseline = CalcBaselineY(font, centerY, Style.kVisualTextOffset);
+const topY = TopYFromBaseline(font, baseline);
+
+// Checkbox
+drawRectBorder(contentX, centerY - 8, 16, 16, 1, '#000');
+if (item.done) {
+drawText(contentX + 2, centerY - 4, '✓', font, '#000');
+}
+
+drawText(contentX + 28, topY, item.text, font, item.done ? '#888' : '#000');
+y += kTodoItemH;
+}
+
+// Footer
+drawText(72, kTodoFooterY + 3, '+ 新建', font, '#000');
+drawText(184, kTodoFooterY + 3, '↑↓ 移动', font, '#000');
+drawText(306, kTodoFooterY + 3, 'BOOT', font, '#000');
+
+updateComponentList();
+}
+
+function drawRectBorder(x, y, w, h, strokeWidth, stroke) {
+ctx.strokeStyle = stroke;
+ctx.lineWidth = strokeWidth;
+ctx.strokeRect(x, y, w, h);
+components.push({ type: 'rectborder', x, y, w, h, strokeWidth, stroke, page: currentPage });
+}
+
+// ============================================================
+// UI controls
+// ============================================================
+
+function updateComponentList() {
+const list = document.getElementById('component-list');
+list.innerHTML = '<h2>Components</h2>';
+components.forEach((c, i) => {
+const item = document.createElement('div');
+item.className = 'component-item' + (i === selectedIdx ? ' selected' : '');
+item.textContent = `${c.type}: (${c.x},${c.y}) ${c.text || (c.w + 'x' + c.h)}`;
+item.onclick = () => selectComponent(i);
+list.appendChild(item);
+});
+}
+
+function selectComponent(idx) {
+selectedIdx = idx;
+const c = components[idx];
+const info = document.getElementById('selected-info');
+info.innerHTML = `
+<div class="info-row"><label>Type:</label> <input id="type-field" value="${c.type}" disabled></div>
+<div class="info-row"><label>X:</label> <input id="x-field" value="${c.x}" onchange="adjustValue('x', this.value)"></div>
+<div class="info-row"><label>Y:</label> <input id="y-field" value="${c.y}" onchange="adjustValue('y', this.value)"></div>
+<div class="info-row"><label>W:</label> <input id="w-field" value="${c.w || 0}" ${c.w ? '' : 'disabled'} onchange="adjustValue('w', this.value)"></div>
+<div class="info-row"><label>H:</label> <input id="h-field" value="${c.h || 0}" ${c.h ? '' : 'disabled'} onchange="adjustValue('h', this.value)"></div>
+<div class="info-row"><label>Text:</label> <input id="text-field" value="${c.text || ''}" ${c.text ? '' : 'disabled'}></div>
+<div class="info-row"><label>Font:</label> ${c.font ? c.font.name : 'N/A'}</div>
+<div class="info-row"><label>Calc:</label> <small>${c._calc || 'direct'}</small></div>
+`;
+updateComponentList();
+}
+
+function adjustValue(prop, newVal) {
+if (selectedIdx < 0) return;
+const c = components[selectedIdx];
+const oldVal = c[prop];
+const delta = parseInt(newVal) - oldVal;
+c[prop] = parseInt(newVal);
+
+const comment = document.getElementById('comment-input').value;
+addLogEntry(c, prop, oldVal, newVal, comment);
+
+// Directly redraw this component (no full rerender)
+redrawComponent(c, true);
+selectComponent(selectedIdx);
+}
+
+function rerender() {
+switch (currentPage) {
+case 'chat': renderChatPage(); break;
+case 'settings': renderSettingsPage(); break;
+case 'todo': renderTodoPage(); break;
+}
+selectComponent(selectedIdx);
+}
+
+
+
+function redrawComponent(c, clearOld = false) {
+// Clear old area if needed (approximate)
+if (clearOld && c._oldX !== undefined) {
+ctx.fillStyle = '#fff';
+const oldW = c._oldW || c.w || 100;
+const oldH = c._oldH || c.h || 20;
+ctx.fillRect(c._oldX, c._oldY, oldW + 2, oldH + 2);
+}
+
+// Save current position before drawing
+c._oldX = c.x;
+c._oldY = c.y;
+c._oldW = c.w;
+c._oldH = c.h;
+
+if (c.type === 'rect') {
+ctx.fillStyle = c.fill;
+ctx.fillRect(c.x, c.y, c.w, c.h);
+if (c.strokeWidth > 0) {
+ctx.strokeStyle = c.stroke;
+ctx.lineWidth = c.strokeWidth;
+ctx.strokeRect(c.x, c.y, c.w, c.h);
+}
+} else if (c.type === 'roundrect') {
+ctx.beginPath();
+ctx.roundRect(c.x, c.y, c.w, c.h, c.radius);
+ctx.fillStyle = c.fill;
+ctx.fill();
+if (c.strokeWidth > 0) {
+ctx.strokeStyle = c.stroke;
+ctx.lineWidth = c.strokeWidth;
+ctx.stroke();
+}
+} else if (c.type === 'text') {
+ctx.fillStyle = '#fff';
+// Clear text area (approximate width)
+const tw = c.tw || ctx.measureText(c.text).width;
+ctx.fillRect(c._oldX - 1, c._oldY - c.font.line_height + 1, tw + 2, c.font.line_height + 2);
+ctx.fillStyle = c.color;
+ctx.font = `${c.font.line_height}px monospace`;
+ctx.fillText(c.text, c.x, c.y);
+} else if (c.type === 'hline') {
+ctx.strokeStyle = '#fff';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(c._oldX1 || c.x1, c._oldY || c.y);
+ctx.lineTo(c._oldX2 || c.x2, c._oldY || c.y);
+ctx.stroke();
+ctx.strokeStyle = c.color;
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(c.x1, c.y);
+ctx.lineTo(c.x2, c.y);
+ctx.stroke();
+c._oldX1 = c.x1;
+c._oldX2 = c.x2;
+} else if (c.type === 'vline') {
+ctx.strokeStyle = '#fff';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(c._oldX || c.x, c._oldY1 || c.y1);
+ctx.lineTo(c._oldX || c.x, c._oldY2 || c.y2);
+ctx.stroke();
+ctx.strokeStyle = c.color;
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(c.x, c.y1);
+ctx.lineTo(c.x, c.y2);
+ctx.stroke();
+c._oldY1 = c.y1;
+c._oldY2 = c.y2;
+} else if (c.type === 'rectborder') {
+ctx.fillStyle = '#fff';
+ctx.fillRect(c._oldX - 1, c._oldY - 1, c._oldW + 2, c._oldH + 2);
+ctx.strokeStyle = c.stroke;
+ctx.lineWidth = c.strokeWidth;
+ctx.strokeRect(c.x, c.y, c.w, c.h);
+}
+}
+
+function addLogEntry(component, prop, oldVal, newVal, comment) {
+const entry = {
+page: currentPage,
+type: component.type,
+id: selectedIdx,
+prop,
+original: oldVal,
+modified: newVal,
+comment: comment || '',
+timestamp: new Date().toISOString()
+};
+adjustmentLog.push(entry);
+
+const logList = document.getElementById('log-list');
+const div = document.createElement('div');
+div.className = 'log-entry';
+div.innerHTML = `
+[${currentPage}] ${component.type}#${selectedIdx}: ${prop} ${oldVal} → ${newVal}
+<div class="comment">${comment || '(no comment)'}</div>
+`;
+logList.appendChild(div);
+}
+
+document.addEventListener('keydown', (e) => {
+if (selectedIdx < 0) return;
+const c = components[selectedIdx];
+const delta = e.shiftKey ? 5 : 1;
+
+if (e.key === 'ArrowLeft') {
+adjustValue('x', c.x - delta);
+e.preventDefault();
+} else if (e.key === 'ArrowRight') {
+adjustValue('x', c.x + delta);
+e.preventDefault();
+} else if (e.key === 'ArrowUp') {
+adjustValue('y', c.y - delta);
+e.preventDefault();
+} else if (e.key === 'ArrowDown') {
+adjustValue('y', c.y + delta);
+e.preventDefault();
+} else if (e.ctrlKey && e.key === 'ArrowLeft' && c.w) {
+adjustValue('w', c.w - delta);
+e.preventDefault();
+} else if (e.ctrlKey && e.key === 'ArrowRight' && c.w) {
+adjustValue('w', c.w + delta);
+e.preventDefault();
+} else if (e.ctrlKey && e.key === 'ArrowUp' && c.h) {
+adjustValue('h', c.h - delta);
+e.preventDefault();
+} else if (e.ctrlKey && e.key === 'ArrowDown' && c.h) {
+adjustValue('h', c.h + delta);
+e.preventDefault();
+}
+});
+
+// ============================================================
+// Page buttons
+// ============================================================
+const pages = ['chat', 'settings', 'todo'];
+const pageButtons = document.getElementById('page-buttons');
+pages.forEach(p => {
+const btn = document.createElement('button');
+btn.className = 'page-btn' + (p === 'chat' ? ' active' : '');
+btn.textContent = p.toUpperCase();
+btn.onclick = () => {
+currentPage = p;
+document.querySelectorAll('.page-btn').forEach(b => b.classList.remove('active'));
+btn.classList.add('active');
+selectedIdx = -1;
+adjustmentLog = [];
+document.getElementById('log-list').innerHTML = '';
+rerender();
+};
+pageButtons.appendChild(btn);
+});
+
+document.getElementById('export-btn').onclick = () => {
+const json = JSON.stringify(adjustmentLog, null, 2);
+const blob = new Blob([json], { type: 'application/json' });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = `layout_adjustments_${currentPage}_${Date.now()}.json`;
+a.click();
+};
+
+// Initial render
+renderChatPage();
+</script>
+</body>
+</html>

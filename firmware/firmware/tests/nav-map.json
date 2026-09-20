@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "generated_by": "hand-written, single source of truth",
+  "consumers": [
+    "tests/host/test_nav_model.cc (one RUN() per row)",
+    "../../tests/test_manual.py (every row must appear in docs/MANUAL.md)"
+  ],
+  "notes": [
+    "Action strings are exactly what nav::ActionString() produces in main/common/nav_model.cc.",
+    "Rows describe the model decision, not the glue. Feedback (activity LED) is owed for every row.",
+    "BOOT long is reserved for push-to-talk on every row. With VOICE_PTT_ENABLED off it is a logged, muted no-op.",
+    "Rows marked reachable=false describe a context nothing in this firmware opens yet."
+  ],
+  "contexts": {
+    "Dashboard": {
+      "reachable": true,
+      "label": "Dashboard",
+      "setup": {"page": "Dashboard"},
+      "description": "The full-panel frame composed on the Mac. No overlay open."
+    },
+    "Gallery": {
+      "reachable": true,
+      "label": "Gallery",
+      "setup": {"page": "Gallery"},
+      "description": "Photo grid (memory-card view), not the fullscreen photo view."
+    },
+    "Settings": {
+      "reachable": true,
+      "label": "Settings",
+      "setup": {"page": "Settings"},
+      "description": "The settings list."
+    },
+    "Transfer": {
+      "reachable": true,
+      "label": "Photo transfer",
+      "setup": {"page": "Transfer", "transfer_active": true},
+      "description": "Modal AP photo transfer, entered from the Settings row 'Photo transfer'."
+    },
+    "QuickSwitchOpen": {
+      "reachable": true,
+      "label": "Quick switch menu",
+      "setup": {"page": "Dashboard", "quick_switch_open": true},
+      "description": "The overlay opened by BOOT click on the Dashboard."
+    },
+    "DialogOpen": {
+      "reachable": false,
+      "label": "Modal dialog",
+      "setup": {"page": "Dashboard", "dialog_open": true},
+      "description": "Reserved. No component in this firmware opens a modal dialog yet; the contract is fixed in advance."
+    }
+  },
+  "gestures": {
+    "UpClick": "UP click",
+    "DownClick": "DOWN click",
+    "BootClick": "BOOT click",
+    "UpLong": "UP long press",
+    "DownLong": "DOWN long press",
+    "BootLong": "BOOT long press",
+    "ComboLong": "UP+DOWN long press"
+  },
+  "rows": [
+    {"context": "Dashboard", "event": "UpClick", "action": "switch_page:Settings", "meaning": "Previous page in the ring"},
+    {"context": "Dashboard", "event": "DownClick", "action": "switch_page:Gallery", "meaning": "Next page in the ring"},
+    {"context": "Dashboard", "event": "BootClick", "action": "open_quick_switch", "meaning": "Open the quick switch menu"},
+    {"context": "Dashboard", "event": "UpLong", "action": "feedback_noop", "meaning": "Back, already at the top level"},
+    {"context": "Dashboard", "event": "DownLong", "action": "feedback_noop", "meaning": "Home, already home"},
+    {"context": "Dashboard", "event": "BootLong", "action": "ptt_arm", "meaning": "Reserved for push-to-talk"},
+    {"context": "Dashboard", "event": "ComboLong", "action": "wifi_config_ap", "meaning": "Open the Wi-Fi setup access point"},
+
+    {"context": "Gallery", "event": "UpClick", "action": "list_move:-1", "meaning": "Move the selection up"},
+    {"context": "Gallery", "event": "DownClick", "action": "list_move:+1", "meaning": "Move the selection down"},
+    {"context": "Gallery", "event": "BootClick", "action": "select", "meaning": "Open or close the fullscreen photo"},
+    {"context": "Gallery", "event": "UpLong", "action": "switch_page:Dashboard", "meaning": "Back to the Dashboard"},
+    {"context": "Gallery", "event": "DownLong", "action": "home", "meaning": "Home to the Dashboard"},
+    {"context": "Gallery", "event": "BootLong", "action": "ptt_arm", "meaning": "Reserved for push-to-talk"},
+    {"context": "Gallery", "event": "ComboLong", "action": "wifi_config_ap", "meaning": "Open the Wi-Fi setup access point"},
+
+    {"context": "Settings", "event": "UpClick", "action": "list_move:-1", "meaning": "Move the selection up"},
+    {"context": "Settings", "event": "DownClick", "action": "list_move:+1", "meaning": "Move the selection down"},
+    {"context": "Settings", "event": "BootClick", "action": "select", "meaning": "Activate the selected setting"},
+    {"context": "Settings", "event": "UpLong", "action": "switch_page:Dashboard", "meaning": "Back to the Dashboard"},
+    {"context": "Settings", "event": "DownLong", "action": "home", "meaning": "Home to the Dashboard"},
+    {"context": "Settings", "event": "BootLong", "action": "ptt_arm", "meaning": "Reserved for push-to-talk"},
+    {"context": "Settings", "event": "ComboLong", "action": "wifi_config_ap", "meaning": "Open the Wi-Fi setup access point"},
+
+    {"context": "Transfer", "event": "UpClick", "action": "feedback_noop", "meaning": "Nothing to select on the instruction sheet"},
+    {"context": "Transfer", "event": "DownClick", "action": "feedback_noop", "meaning": "Nothing to select on the instruction sheet"},
+    {"context": "Transfer", "event": "BootClick", "action": "repaint_page", "meaning": "Redraw the instructions from stored content"},
+    {"context": "Transfer", "event": "UpLong", "action": "exit_transfer:Settings", "meaning": "Back, stopping transfer, to Settings"},
+    {"context": "Transfer", "event": "DownLong", "action": "home", "meaning": "Home, stopping transfer, to the Dashboard"},
+    {"context": "Transfer", "event": "BootLong", "action": "ptt_arm", "meaning": "Reserved for push-to-talk"},
+    {"context": "Transfer", "event": "ComboLong", "action": "wifi_config_ap", "meaning": "Open the Wi-Fi setup access point"},
+
+    {"context": "QuickSwitchOpen", "event": "UpClick", "action": "quick_switch_move:-1", "meaning": "Move the menu selection up"},
+    {"context": "QuickSwitchOpen", "event": "DownClick", "action": "quick_switch_move:+1", "meaning": "Move the menu selection down"},
+    {"context": "QuickSwitchOpen", "event": "BootClick", "action": "quick_switch_confirm", "meaning": "Activate the highlighted entry"},
+    {"context": "QuickSwitchOpen", "event": "UpLong", "action": "close_quick_switch", "meaning": "Back, closing the menu"},
+    {"context": "QuickSwitchOpen", "event": "DownLong", "action": "home", "meaning": "Home, closing the menu"},
+    {"context": "QuickSwitchOpen", "event": "BootLong", "action": "ptt_arm", "meaning": "Reserved for push-to-talk"},
+    {"context": "QuickSwitchOpen", "event": "ComboLong", "action": "wifi_config_ap", "meaning": "Open the Wi-Fi setup access point"},
+
+    {"context": "DialogOpen", "event": "UpClick", "action": "dialog_move:-1", "meaning": "Move the dialog selection up"},
+    {"context": "DialogOpen", "event": "DownClick", "action": "dialog_move:+1", "meaning": "Move the dialog selection down"},
+    {"context": "DialogOpen", "event": "BootClick", "action": "dialog_confirm", "meaning": "Confirm the dialog"},
+    {"context": "DialogOpen", "event": "UpLong", "action": "close_dialog", "meaning": "Back, dismissing the dialog"},
+    {"context": "DialogOpen", "event": "DownLong", "action": "home", "meaning": "Home, dismissing the dialog"},
+    {"context": "DialogOpen", "event": "BootLong", "action": "ptt_arm", "meaning": "Reserved for push-to-talk"},
+    {"context": "DialogOpen", "event": "ComboLong", "action": "wifi_config_ap", "meaning": "Open the Wi-Fi setup access point"}
+  ]
+}

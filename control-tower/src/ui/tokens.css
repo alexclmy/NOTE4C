@@ -1,0 +1,180 @@
+/*
+ * Design tokens, single source.
+ *
+ * Ink on cream paper. Every surface is bordered in 2 px of ink, every raised
+ * thing casts a hard shadow with no blur, and nothing has a corner radius. A
+ * press moves the object into its own shadow rather than tinting it. That is
+ * the whole visual grammar, and it is deliberately the opposite of the soft,
+ * radiused, shadowless chrome this file used to describe: the panel this tower
+ * drives is four flat pigments with a hard bezel, and the interface around it
+ * now says so.
+ *
+ * No brightness metaphors exist anywhere in this product: the panel has none.
+ */
+
+:root {
+  /* Surfaces. --paper is a card; --canvas is the page it sits on. */
+  --paper: #fffdf8;
+  --canvas: #f4f1e9;
+  /*
+   * Kept as an alias of --canvas. A long tail of rules named --surface for
+   * "the quieter of the two surfaces", and that is still exactly what it is.
+   */
+  --surface: #f4f1e9;
+
+  --ink: #161513;
+  --ink-soft: #6b675e;
+  --rule: #d8d4c8;
+
+  /*
+   * Reserved semantics. Never decorative.
+   *
+   * Yellow carries two jobs now, and they do not collide because they never
+   * appear in the same role: it is the primary action colour (one filled
+   * button per view) and it is the colour of pending, queued and stale. Red is
+   * destructive, failed, and uncertain.
+   */
+  --accent-red: #e02d1b;
+  --accent-yellow: #ffd02e;
+
+  /* The device palette, exact. Kept separate from UI tokens on purpose: these
+     four values are the panel contract, not a theme. */
+  --device-black: #000000;
+  --device-white: #ffffff;
+  --device-yellow: #ffff00;
+  --device-red: #ff0000;
+
+  /*
+   * --font-title-local and --font-mono-local are set by next/font/local (see
+   * src/ui/fonts.ts), which self-hosts the vendored OFL faces at build time.
+   * The stacks below still name their fallbacks, so a page rendered before the
+   * font class lands — or with the font blocked — degrades to a system sans
+   * rather than to Times.
+   *
+   * Title and body are the same face. See the note in fonts.ts: this interface
+   * is a designed object and the system face fought it everywhere.
+   */
+  --font-title:
+    var(--font-title-local), "Space Grotesk", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: var(--font-title);
+  --font-mono:
+    var(--font-mono-local), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    monospace;
+
+  /*
+   * Type scale. 12 px is the floor for anything carrying meaning: the badges
+   * and tab labels used to sit at 10-11 px, which is below comfortable reading
+   * on a phone held at arm's length. --size-10 and --size-11 survive for
+   * spaced mono capitals only — short labels where the letterforms and the
+   * tracking do the work and there is no prose to read.
+   */
+  --size-10: 10px;
+  --size-11: 11px;
+  --size-12: 12px;
+  --size-13: 13px;
+  --size-14: 14px;
+  --size-15: 15px;
+  --size-17: 17px;
+  --size-18: 18px;
+  --size-20: 20px;
+  --size-24: 24px;
+  --size-28: 28px;
+
+  /*
+   * Zero. Not "small": the panel's bezel is a hard rectangle, the pigments are
+   * hard-edged, and a 2 px radius on a 2 px border reads as a mistake rather
+   * than as softness.
+   */
+  --radius: 0;
+
+  --border-2: 2px solid var(--ink);
+  --border-2-soft: 2px solid var(--ink-soft);
+  --border-dashed: 2px dashed var(--ink-soft);
+  /* Hairlines inside a bordered box: list rows, ledger lines. */
+  --border: 1px solid var(--rule);
+
+  /*
+   * Hard shadows, zero blur. The offset is the only thing that varies, and it
+   * varies by how much the object claims to be lifted off the page: a card,
+   * a button, a modal.
+   */
+  --shadow-card: 4px 4px 0 var(--ink);
+  --shadow-card-lg: 5px 5px 0 var(--ink);
+  --shadow-btn: 3px 3px 0 var(--ink);
+  --shadow-btn-hover: 4px 4px 0 var(--ink);
+  --shadow-modal: 8px 8px 0 var(--ink);
+  --shadow-toast: 4px 4px 0 rgba(22, 21, 19, 0.3);
+
+  --backdrop: rgba(22, 21, 19, 0.55);
+
+  /*
+   * The minimum any control may measure on a touch screen. The browser QA
+   * measures against this number, so it is a promise rather than a preference.
+   */
+  --tap-target: 44px;
+  /* The iOS home indicator. Zero everywhere it does not exist. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Height of the mobile tab bar, so sticky things can clear it. */
+  --tabs-height: 56px;
+  /* Height of the sticky desktop header, so anchors and sheets can clear it. */
+  --header-height: 60px;
+
+  /* Density. Comfortable is the default; compact tightens spacing only. */
+  --pad-1: 6px;
+  --pad-2: 12px;
+  --pad-3: 18px;
+  --pad-4: 24px;
+  --row-gap: 12px;
+
+  /* The one content measure, shared by the header, the nav and the main. */
+  --shell-max: 1160px;
+}
+
+/*
+ * Density is written on the application shell by the server, from the tower's
+ * own state, so the first paint is already the density the user chose. The
+ * selector is attribute-only rather than :root-scoped so that the shell
+ * element can carry it without the root layout having to become dynamic.
+ */
+:root[data-density="compact"],
+[data-density="compact"] {
+  --pad-1: 4px;
+  --pad-2: 8px;
+  --pad-3: 12px;
+  --pad-4: 16px;
+  --row-gap: 8px;
+}
+
+/*
+ * Motion, in one place.
+ *
+ * This interface animates very little, and what it does animate exists to
+ * explain where a thing came from (a card that rises into place, a sheet that
+ * slides up) or that something is still happening (the pulse on an unresolved
+ * state and on the step a send is currently in). Every duration is read from
+ * these variables, and they go to zero for a reader who asked for less motion,
+ * so a new transition cannot be added that ignores the preference without
+ * going out of its way.
+ *
+ * --motion-pulse goes to zero too, which stops the animation dead rather than
+ * making it instant: `animation-duration: 0s` never advances past the first
+ * keyframe, and the first keyframe of `pulse` is full opacity.
+ */
+:root {
+  --motion-fast: 120ms;
+  --motion-slide: 160ms;
+  --motion-rise: 250ms;
+  --motion-pulse: 1.6s;
+  --motion-pulse-step: 1.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-slide: 0ms;
+    --motion-rise: 0ms;
+    --motion-pulse: 0s;
+    --motion-pulse-step: 0s;
+  }
+}

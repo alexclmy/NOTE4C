@@ -1,0 +1,69 @@
+menu "Xiaozhi Assistant"
+
+config USE_EMOTE_MESSAGE_STYLE
+    bool "Use rawdraw 1bpp rendering (no LVGL)"
+    default y
+    help
+        When enabled, the display uses rawdraw 1bpp framebuffer rendering
+        instead of LVGL. This is the recommended mode for the ZecTrix
+        S3 E-Paper 4.2 board as LVGL causes frequent crashes.
+
+config BOARD_TYPE_ZECTRIX_S3_EPAPER_4_2
+    bool "zectrix-s3-epaper-4.2 FT firmware"
+    default y
+    depends on IDF_TARGET_ESP32S3
+    help
+        This local repository has been reduced to a single FT-only firmware
+        for the zectrix-s3-epaper-4.2 board.
+
+choice ZECTRIX_EPD_PANEL_TYPE
+    prompt "ZecTrix EPD panel type"
+    default ZECTRIX_EPD_PANEL_4COLOR_SSD2683
+    depends on BOARD_TYPE_ZECTRIX_S3_EPAPER_4_2
+    help
+        Select the e-paper panel connected to the board. The 4-color option
+        keeps the existing 1bpp UI framebuffer and converts it to the SSD2683
+        2bpp wire format during refresh.
+
+config ZECTRIX_EPD_PANEL_1BPP
+    bool "1bpp black/white EPD"
+
+config ZECTRIX_EPD_PANEL_4COLOR_SSD2683
+    bool "4-color BWRY SSD2683 EPD"
+
+endchoice
+
+config AUTONOMY_ENABLED
+    bool "Semi-autonomous rendering (autonomy profile + Open-Meteo)"
+    default n
+    help
+        Off by default, and that default is the rollout gate rather than a
+        preference.
+
+        When off, this build advertises no "autonomy.profile.v1" capability,
+        brings up no profile store, answers the profile and local-render routes
+        with 404 autonomy_unsupported, and never composes a frame for itself. A
+        tower reads the capability list and reports the gap structurally instead
+        of offering controls that would do nothing. The device is exactly the
+        push target it was before the feature existed.
+
+        When on, the device may compose its own panel from a profile the tower
+        pushed, and may make at most one HTTPS request per wake to Open-Meteo
+        for a forecast. Even then nothing happens until autonomy.enabled is set
+        through the config API: this flag decides whether the feature can be
+        turned on at all, and that field decides whether it is.
+
+        Note what this flag does NOT do: the autonomy translation units are
+        still compiled and linked. It gates the feature's reachability, not its
+        presence in the binary. DASHBOARD_MINIMAL_UI is the other kind of
+        switch and the difference is deliberate.
+
+config ZECTRIX_EPD_4COLOR_BOOT_TEST_PATTERN
+    bool "Show 4-color EPD test pattern at boot"
+    default n
+    depends on ZECTRIX_EPD_PANEL_4COLOR_SSD2683
+    help
+        Show black/white/red/yellow vertical bars once during display
+        initialization so a newly connected 4-color panel can be verified.
+
+endmenu

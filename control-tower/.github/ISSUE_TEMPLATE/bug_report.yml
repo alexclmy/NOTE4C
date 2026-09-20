@@ -1,0 +1,85 @@
+name: Bug report
+description: Something behaves differently from what it says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The most useful bug reports for this
+        project are the ones about **honesty**: the interface said one thing
+        and the device did another, or a value appeared that the tower could
+        not actually have known.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+      placeholder: |
+        I pressed Push with the device asleep, and ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: tower-card
+    attributes:
+      label: The Tower card
+      description: >
+        Diagnostics → Tower. Copy it here. It carries the version, the device
+        mode, the data root and the Node version, and it contains nothing
+        private. It answers most of the first round of questions.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Which device was this against?
+      options:
+        - The in-repo mock (SIMULATED badge showing)
+        - A real NOTE4C panel
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware, if it was a real device
+      description: >
+        The api level and firmware string from Device → About. Leave blank for
+        the mock.
+      placeholder: "api 2, capabilities include config.v2"
+
+  - type: dropdown
+    id: viewport
+    attributes:
+      label: Where were you looking at it?
+      options:
+        - Desktop browser
+        - Tablet
+        - Phone
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >
+        Steps, ideally against the mock — a bug reproducible without hardware
+        can be fixed by anybody.
+      placeholder: |
+        1. npm run dev
+        2. Create a dashboard
+        3. ...
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: >
+        Screenshots help. Please redact your LAN addresses, any path containing
+        your name, and anything readable on the panel that you would not post
+        in public.

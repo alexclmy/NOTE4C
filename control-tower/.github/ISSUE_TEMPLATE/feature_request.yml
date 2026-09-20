@@ -1,0 +1,35 @@
+name: Feature request
+description: Something this should do, and does not.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before writing: this project is deliberately narrow. Support for panels
+        other than the NOTE4C, anything cloud-hosted, and a second rendering
+        path for the preview are all out of scope — see `CONTRIBUTING.md`.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: >
+        The situation, not the solution. "I want to know whether the panel is
+        showing yesterday's frame" is more useful than "add a timestamp field".
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What did you have in mind?
+      description: Optional. A sketch is fine.
+
+  - type: textarea
+    id: honesty
+    attributes:
+      label: What would the tower actually know?
+      description: >
+        This product refuses to display anything it cannot verify. If your idea
+        involves showing a state, say where that state would come from and what
+        it should say when the device is asleep and cannot be asked.

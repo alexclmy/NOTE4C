@@ -1,0 +1,71 @@
+name: CI
+
+# Typecheck, unit tests and a real build on every push and pull request.
+# There is no deploy job and there never should be: this is a program that runs
+# on the machine in front of you, and nothing in this repository publishes
+# anything anywhere.
+
+# `push` is restricted to the default branch on purpose. With
+# `branches: ["**"]` every pull request from a branch in this repository ran
+# the whole matrix twice — once for the push that created the branch tip, once
+# for the pull_request event pointing at the same commit — which doubled the
+# minutes and produced two sets of checks that could disagree only by being
+# flaky. Branch pushes are covered by the pull_request event; a push to main is
+# the one case that has no pull request behind it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run test
+
+      # The scratch-directory build, so the two generated files it rewrites are
+      # put back. See tools/build-check.sh for why a plain `next build` is not
+      # a safe *check*.
+      - run: npm run build:check
+
+  browser:
+    name: Browser suite
+    runs-on: ubuntu-latest
+    # Three viewports against the in-repo mock, a few minutes of wall clock.
+    # Non-blocking to begin with: this suite has not yet been run on a CI
+    # runner, and a first green run is a prerequisite for making it required,
+    # not something to assume. Flip continue-on-error off once it has proven
+    # itself here.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

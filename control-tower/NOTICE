@@ -1,0 +1,128 @@
+# Notices and attributions
+
+NOTE4C Control Tower is MIT licensed; see `LICENSE`. This file records what
+else is inside the repository or reached by the running program, and under what
+terms. Every entry below was read from the file it describes — the vendored
+licence text, the package metadata, or the provider's own terms — rather than
+recalled.
+
+## Fonts vendored in this repository
+
+Five families ship as `.ttf` under `assets/fonts/`, each with its full licence
+text beside it. All five are under the SIL Open Font License, Version 1.1.
+
+| Family | Copyright, as stated in its OFL.txt | Licence text |
+| --- | --- | --- |
+| Inter | Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter) | `assets/fonts/inter/OFL.txt` |
+| Atkinson Hyperlegible | Copyright 2020 Braille Institute of America, Inc. | `assets/fonts/atkinson/OFL.txt` |
+| IBM Plex Mono | Copyright © 2017 IBM Corp. with Reserved Font Name "Plex" | `assets/fonts/plexmono/OFL.txt` |
+| Poppins | Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins) | `assets/fonts/poppins/OFL.txt` |
+| Space Grotesk | Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk) | `assets/fonts/spacegrotesk/OFL.txt` |
+
+**Derived works.** `src/core/render/fonts/*.json` are monochrome glyph atlases
+rasterised from those faces by `tools/gen_font_atlas.py`, and they are
+committed so that rendering needs no font installed on the machine and no asset
+off it. The OFL permits redistribution of the fonts and of derived works under
+the same licence, which is why these files can live in git. The atlases are
+named for the families they were rasterised from and are not distributed as
+fonts under a reserved name; IBM Plex Mono's reserved name is "Plex", and
+nothing here is offered as a font called Plex.
+
+Two of these faces are also served to the browser as webfonts by
+`next/font/local`: **Space Grotesk** sets the whole interface, and **IBM Plex
+Mono** sets labels, timestamps and technical values. Space Grotesk ships as the
+single variable file `SpaceGrotesk-Variable.ttf`, covering weights 300 to 700 —
+the upstream project publishes no static SemiBold, and the interface uses 500
+and 600. IBM Plex Mono ships as four static cuts (400, 500, 600, 700) for the
+same reason.
+
+Both are self-hosted from this repository at build time. Nothing is fetched
+from a font CDN at runtime, and `tools/screenshots.ts` fails its QA run on any
+request to an origin other than the tower's own, so this is checked rather than
+intended.
+
+Poppins is no longer served to the browser — Space Grotesk replaced it — but it
+stays vendored, because `src/core/render/fonts/poppins.json` was rasterised
+from it and a composition may still select that face for the panel.
+
+**Not included, deliberately:** the earlier version of the atlas generator
+rasterised macOS Arial, which is licensed to Apple by Monotype for use on the
+machine and is not ours to redistribute as derived bitmaps. It was removed.
+
+## Symbols
+
+The pictograms in `src/core/render/pictograms.ts` are original 12×12 drawings
+made for this project, in the panel's four pigments. No emoji font is used or
+redistributed.
+
+## Network services the running program can read
+
+Four classes of outbound request exist, and they are listed here in full. All
+four are optional, all four are read-only, none is contacted unless a dashboard
+binds to a module that needs it, and none of them is on in a fresh install.
+
+1. **Open-Meteo** (`api.open-meteo.com`), the forecast, when
+   `NOTE4C_WEATHER_LATITUDE` and `NOTE4C_WEATHER_LONGITUDE` are set. Open-Meteo
+   publishes its data under **CC BY 4.0**, which requires attribution. This
+   product attributes it on the panel itself: the weather module can print the
+   location and the source — "… · Open-Meteo" — beside the numbers.
+2. **A second forecast source**, whatever URL is set in
+   `NOTE4C_WEATHER_FALLBACK_URL`, used only when the first one fails. The
+   parser expects the shape published by Environment and Climate Change
+   Canada's city page feed, which is why this is a whole URL rather than a
+   place. It is an arbitrary origin supplied by the operator, so this project
+   asserts nothing about it: if you point it at a government or commercial
+   service, that service's terms of use — including any attribution it
+   requires — are yours to honour.
+3. **A Home Assistant instance**, at `HASS_URL`, read with the long-lived token
+   in `HASS_TOKEN` (or in the file named by `NOTE4C_HA_ENV_PATH`). This is the
+   only one of the four that sends a credential. It is your own instance, under
+   your own terms; the tower reads `sensor.*` and `binary_sensor.*` states and
+   nothing else, and writes nothing.
+4. **A second renderer**, at `NOTE4C_COMPOSER_ORIGIN` — another program that
+   may be running on the same machine or LAN. The tower reads its status
+   endpoint, never writes to it, never takes its scheduler lock and never calls
+   its upload path. Unset by default, in which case it is not mentioned in the
+   interface at all.
+
+Separately, the tower talks to **the NOTE4C panel itself** on the LAN: an
+RFC1918 IPv4 literal on port 80, over a closed path allowlist, with redirects
+refused. That is the point of the program rather than an optional extra, and it
+is documented under "Network behaviour" in the README.
+
+## A process boundary, not a network one
+
+**Apple Reminders.** When `NOTE4C_REMINDCTL_BIN` names one, the tower spawns
+`remindctl` — a third-party command-line program, not part of this repository
+and not redistributed by it. It is spawned with no shell, no stdin, a hard
+timeout, and only the `list`, `show` and `status` subcommands; every mutating
+subcommand is refused by an explicit list. That binary holds Full Access to
+Reminders, which is access to the whole iCloud Reminders database; the narrowing
+is done on this side, and what leaves the adapter is two counts and a list name.
+Reminder `notes` are dropped at the parse boundary and are unreachable from any
+code path here. Unset by default, in which case no process is spawned.
+
+Beyond those four network classes, the device, and that one subprocess, nothing
+else leaves the machine. The tower binds loopback, and serves no asset from a
+third party.
+
+## Dependencies
+
+Runtime: `next`, `react`, `react-dom`, `zod` and `tsx`, all MIT. `tsx` is a
+runtime dependency rather than a development one because `npm start` and
+`npm run dev` go through `tools/tower-serve.ts`, the launcher that applies the
+bind policy before the server exists. Development: `typescript` and
+`@playwright/test` (Apache-2.0), `vitest` and the `@types/*` packages (MIT).
+
+Those direct dependencies pull in a transitive tree that also contains
+MPL-2.0 (`lightningcss`), LGPL-3.0-or-later (`@img/sharp-libvips-*`), ISC,
+0BSD, BSD-3-Clause and CC-BY-4.0 (`caniuse-lite`) components, all of them
+underneath Next.js. None of them is vendored here: npm installs them from the
+registry under their own terms, and this repository redistributes no part of
+them.
+
+## Hardware
+
+NOTE4C is a third-party e-paper devkit. This project is an unofficial companion
+for it, is not affiliated with or endorsed by its vendor, and speaks to it over
+the documented local HTTP API only. All trademarks belong to their owners.

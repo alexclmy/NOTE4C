@@ -1,0 +1,911 @@
+/*
+ * The designer, on its own.
+ *
+ * Split out of app.css because it is the only screen with a direct-manipulation
+ * surface, and because those rules — pointer capture, hit targets over a live
+ * canvas, a stage that has to fit a phone — have nothing to say about the rest
+ * of the product. It is imported by the designer route only.
+ */
+
+/* ----------------------------------------------------------------- header -- */
+
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--pad-3);
+}
+
+.editor-title {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.editor-title h1 {
+  font-size: var(--size-20);
+  margin: 0;
+}
+
+/*
+ * The version line, and the popover it opens.
+ *
+ * `position: relative` on the anchor rather than on the page, so the menu is
+ * placed against the title it describes and travels with it when the header
+ * wraps on a narrow window.
+ */
+.version-anchor {
+  position: relative;
+  min-width: 0;
+}
+
+.version-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: 24px;
+}
+
+.version-toggle:hover {
+  color: var(--ink);
+}
+
+/*
+ * `display: none` when closed, not an unmounted subtree.
+ *
+ * The difference is what it leaves behind: `display: none` removes the list
+ * from the accessibility tree and from the tab order — which is everything a
+ * closed menu owes — while keeping the version history in the document for
+ * anything that reads the page rather than looking at it.
+ */
+.version-menu-wrap {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  background: var(--paper);
+  border: var(--border-2);
+  box-shadow: var(--shadow-card);
+  min-width: 280px;
+  max-width: min(420px, 90vw);
+}
+
+.version-menu-wrap[data-open="true"] {
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .version-menu-wrap[data-open="true"] {
+    animation: rise var(--motion-slide) ease;
+  }
+}
+
+.version-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--pad-2);
+  padding: 9px var(--pad-2);
+  border-bottom: var(--border);
+}
+
+.version-number {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-12);
+  flex: none;
+}
+
+.version-when {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-current {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-10);
+  letter-spacing: 0.06em;
+  background: var(--accent-yellow);
+  border: 1px solid var(--ink);
+  padding: 2px 6px;
+  flex: none;
+}
+
+.version-row .btn {
+  min-height: 34px;
+  padding: 5px 9px;
+  font-size: var(--size-11);
+  flex: none;
+}
+
+.version-note {
+  margin: 0;
+  padding: 8px var(--pad-2);
+  border-top: var(--border);
+  font-size: var(--size-10);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ stage -- */
+
+/*
+ * `minmax(0, 1.6fr)` and `minmax(280px, 1fr)`: the canvas gets the room and
+ * the inspector gets a floor. A bare `1fr 300px` let the stage at 2x (800 px)
+ * widen the grid rather than be constrained by it.
+ */
+.designer {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: var(--pad-3);
+  align-items: start;
+}
+
+/*
+ * Both columns may be narrower than their content.
+ *
+ * Without this, a grid item's automatic minimum size is its content, so a
+ * stage drawn at 2x (800 px) widened the column that the fit-to-width scale is
+ * measured from — which computed a scale of 2, which kept the stage at 800 px.
+ * The page scrolled sideways on a phone and the fit never engaged, because the
+ * measurement was of the thing it was supposed to be constraining.
+ */
+.designer > * {
+  min-width: 0;
+}
+
+/*
+ * The preview stays put while the inspector is read.
+ *
+ * In two columns the inspector on the right can run taller than the canvas —
+ * the weather block alone has half a dozen text roles — and scrolling down to
+ * reach a control used to carry the canvas off the top of the screen, so the
+ * one thing this page exists for, watching an edit land, was impossible for
+ * exactly the edits that need it most.
+ *
+ * The left column is stretched to the grid row's height (the taller of the
+ * two), and the preview card is pinned just under the sticky header, so it
+ * reacts in place however far the options run beside it.
+ *
+ * Two columns only. In one column the inspector is a bottom sheet whose own
+ * body scrolls, so the options never move the page and the canvas stays above
+ * the sheet without a pin — and pinning there would push the block palette,
+ * still reachable while the sheet is open, down under it.
+ */
+@media (min-width: 901px) {
+  .designer-main {
+    align-self: stretch;
+  }
+
+  .stage-wrap {
+    position: sticky;
+    top: calc(var(--banner-height, 0px) + var(--header-height) + var(--pad-2));
+    /* Above the palette and the warnings that scroll up beneath it. */
+    z-index: 5;
+  }
+}
+
+.stage-wrap {
+  border: var(--border-2);
+  padding: var(--pad-3);
+  background: var(--paper);
+  box-shadow: var(--shadow-card-lg);
+  max-width: 100%;
+  /*
+   * A fixed zoom may be wider than the column — 2x is 800 px and the column at
+   * 1440 is about 680. It scrolls inside the card rather than across the page,
+   * the same discipline the ledger tables use: horizontal scroll is allowed
+   * inside a box that offers it and never at the document.
+   */
+  overflow-x: auto;
+}
+
+.stage-measure {
+  height: 0;
+  /* Nothing to see: this exists so a ResizeObserver has the content width. */
+}
+
+/*
+ * Fit-to-width. When the stage is scaled to the wrapper there is nothing to
+ * scroll sideways, so the wrapper must not offer to: a scroll container under
+ * a drag gesture is how a tile "sticks" halfway through a move on a phone.
+ */
+.stage-wrap[data-fit="true"] {
+  overflow: visible;
+  padding: var(--pad-2);
+}
+
+.stage {
+  position: relative;
+  width: 800px;
+  height: 600px;
+  /* The panel's own hard edge, so the canvas reads as an object on the card. */
+  outline: var(--border-2);
+  /* Focusable: the keyboard path into the layout starts here. */
+  outline-offset: 0;
+  margin: 0 auto;
+}
+
+.stage canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-captions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/*
+ * The grid is drawn over the CONTENT area, which content padding shrinks, so
+ * its offset and size come from the component rather than from `inset: 0`.
+ */
+.grid-overlay {
+  position: absolute;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(22, 21, 19, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(22, 21, 19, 0.14) 1px, transparent 1px);
+  background-size: 100px 100px;
+}
+
+/*
+ * The content boundary. Dashed, above the canvas, and inert: it is a caption
+ * drawn in the same place as the thing it describes, not a control, so it must
+ * never intercept a drag aimed at a tile underneath it.
+ */
+.content-bound {
+  position: absolute;
+  pointer-events: none;
+  border: 1px dashed var(--ink-soft);
+  z-index: 2;
+}
+
+.module-box {
+  position: absolute;
+  border: none;
+  outline: 1px solid rgba(22, 21, 19, 0.15);
+  outline-offset: -1px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: grab;
+  touch-action: none;
+  z-index: 1;
+}
+
+/*
+ * Yellow, 3 px, inset. Inset because the tile is flush with its neighbours and
+ * an outward ring would sit on top of the next one; yellow because the tile is
+ * a window onto black-on-white pixels and ink on ink is not a selection.
+ *
+ * Raised above its siblings so the ring is not clipped by the tile next door.
+ */
+.module-box[data-selected="true"] {
+  outline: 3px solid var(--accent-yellow);
+  outline-offset: -3px;
+  z-index: 3;
+}
+
+.module-box:hover,
+.module-box:focus-visible {
+  outline: 3px solid var(--accent-yellow);
+  outline-offset: -3px;
+  z-index: 3;
+}
+
+/*
+ * A hidden module still holds its cells, so it stays draggable and still
+ * blocks an overlap. Hatching says "reserved, drawing nothing" where an empty
+ * outline would read as a module that simply has no content yet. The opacity
+ * is on top of the hatch so the live pixels beneath show through faintly —
+ * what is hidden is the module, not the panel.
+ */
+.module-box[data-hidden="true"] {
+  opacity: 0.45;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 6px,
+    rgba(22, 21, 19, 0.35) 6px 9px
+  );
+}
+
+.module-box[data-hidden="true"] .tag {
+  opacity: 1;
+}
+
+/*
+ * One resize handle at a time: the selected block's.
+ *
+ * Six handles scattered across a live preview is six yellow squares covering
+ * the pixels the preview exists to show, and none of them belongs to the block
+ * being worked on. `visibility` rather than `display`, so the handle keeps its
+ * box and the browser QA can measure it; it becomes visible the moment the
+ * block is selected — which adding one, clicking one or tabbing to one all do.
+ */
+.module-box .handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-yellow);
+  border: 2px solid var(--ink);
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 4;
+  visibility: hidden;
+}
+
+.module-box:hover .handle,
+.module-box:focus-within .handle,
+.module-box[data-selected="true"] .handle {
+  visibility: visible;
+}
+
+/*
+ * The type tag sits on top of the live preview, so it is hidden until the
+ * module is hovered or selected. A permanent label would cover the very
+ * pixels the designer exists to show.
+ */
+.module-box .tag {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--size-10);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  padding: 0 3px;
+  color: var(--ink);
+  pointer-events: none;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .module-box .tag {
+    transition: opacity var(--motion-fast) linear;
+  }
+}
+
+.module-box:hover .tag,
+.module-box[data-selected="true"] .tag {
+  opacity: 1;
+}
+
+/*
+ * There is no hover on a finger, so a tile with no permanent label is an
+ * anonymous rectangle on a phone. Show the tag faintly instead: legible when
+ * looked for, quiet enough not to fight the pixels underneath.
+ */
+@media (hover: none) {
+  .module-box .tag {
+    opacity: 0.65;
+  }
+}
+
+/* The larger resize handle a finger can actually catch. */
+@media (max-width: 900px) {
+  .module-box .handle {
+    right: -10px;
+    bottom: -10px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ----------------------------------------------------- component gallery --
+ *
+ * The aesthetic risk, named: the "add a block" button row is now a printer's
+ * specimen tray. Each module is a real render of itself framed on paper, with
+ * a letterpress caption plate underneath, grouped under mono-capital eyebrows.
+ * Picking a tile presses it into its own hard shadow — the paper convention
+ * for "this object was pressed" — so choosing a component is a tactile, visual
+ * act rather than reading a list of "+ Label" buttons. It reuses the exact
+ * shadow, border and press motion of the visual pickers, so the catalogue and
+ * the dispositions read as one system.
+ */
+.gallery {
+  margin-top: var(--pad-3);
+  border: var(--border-2);
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  padding: var(--pad-2) var(--pad-3) var(--pad-3);
+}
+
+.gallery-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  border-bottom: var(--border-2);
+  padding-bottom: var(--pad-1);
+  margin-bottom: var(--pad-2);
+}
+
+.gallery-group {
+  margin-top: var(--pad-2);
+}
+
+.gallery-eyebrow {
+  margin: 0 0 8px;
+  font: 600 var(--size-11) / 1.2 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--pad-2);
+}
+
+/* A hairline rule that runs from the eyebrow to the edge — the specimen-sheet
+   divider between categories, drawn rather than decorated. */
+.gallery-eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 0;
+  border-top: var(--border);
+}
+
+.gallery-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.gallery-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  background: var(--paper);
+  border: var(--border-2);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+  min-height: var(--tap-target);
+  transition: transform 80ms steps(2), box-shadow 80ms steps(2);
+}
+
+.gallery-item:hover {
+  box-shadow: var(--shadow-btn);
+  transform: translate(-2px, -2px);
+}
+
+.gallery-item:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.gallery-item:active {
+  box-shadow: none;
+  transform: translate(0, 0);
+}
+
+.gallery-thumb {
+  display: block;
+  border-bottom: var(--border-2);
+  line-height: 0;
+  background: var(--device-white);
+}
+
+.gallery-thumb .frame-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.gallery-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.gallery-name {
+  font: 600 var(--size-12) / 1.2 var(--font-body);
+  color: var(--ink);
+}
+
+.gallery-span {
+  font: 600 var(--size-10) / 1.2 var(--font-mono);
+  color: var(--ink-soft);
+  flex: none;
+}
+
+/* -------------------------------------------------------- fine-tune roles --
+   Type and colour, one bordered block per role, inside the module's single
+   Fine-tune fold. Quieter than a words role: it is the fine print, not the
+   thing a person came to write. */
+.finetune-role {
+  border: var(--border);
+  padding: var(--pad-2);
+  margin-bottom: var(--pad-2);
+  background: var(--canvas);
+}
+
+.finetune-role-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-10);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+/* -------------------------------------------------------- inline warnings --
+   A quiet one-line note under the scene, never a full red paragraph box. The
+   flag is the only colour; the words stay ink. */
+.inline-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: var(--pad-1) 0 0;
+  font-size: var(--size-13);
+  color: var(--ink);
+}
+
+.inline-warning-flag {
+  color: var(--accent-red);
+  font-size: var(--size-12);
+  line-height: 1.5;
+  flex: none;
+}
+
+.inline-warning-quiet {
+  color: var(--ink-soft);
+}
+
+.inline-warning-quiet .inline-warning-flag {
+  color: var(--ink-soft);
+}
+
+/* The quiet marker on the offending canvas tile: a small red chip in the
+   corner, over the live pixels, that says "this text did not fit" without a
+   paragraph. */
+.overflow-flag {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 3px;
+  color: var(--device-white);
+  background: var(--accent-red);
+  border: 1px solid var(--ink);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ------------------------------------------------------------- inspector -- */
+
+.inspector-card {
+  border: var(--border-2);
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  padding: var(--pad-3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .inspector-card {
+    animation: rise var(--motion-slide) ease;
+  }
+}
+
+.inspector-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--pad-2);
+}
+
+.inspector-head h2 {
+  font-size: var(--size-17);
+  font-weight: 700;
+}
+
+/*
+ * The placeholder, dashed. It occupies the column so the layout does not jump
+ * when a block is selected, and it says what to do rather than being an empty
+ * box: "select a block" is the one instruction this screen needs.
+ */
+.inspector-empty {
+  border: var(--border-dashed);
+  padding: 28px var(--pad-4);
+  text-align: center;
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: var(--size-14);
+}
+
+.inspector-foot {
+  display: flex;
+  gap: 10px;
+  margin-top: var(--pad-3);
+  border-top: var(--border-2);
+  padding-top: 14px;
+}
+
+/*
+ * The warnings, as one line above the canvas.
+ *
+ * Up to four full-width banners used to stack *between the title and the
+ * canvas* — overflow, contrast, palette remap, layout — which on a phone put
+ * the thing the page exists for below the fold. The count moves up here; the
+ * banners themselves moved down, under the scene, where they can be as long as
+ * they need to be without displacing it.
+ */
+.warning-line {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--pad-2);
+}
+
+/* The keyboard's running commentary on the selected tile. */
+.stage-live {
+  font-family: var(--font-mono);
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+  margin: var(--pad-1) 0 0;
+  min-height: 1.4em;
+}
+
+@media (max-width: 900px) {
+  .designer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-head {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .stage-wrap {
+    box-shadow: none;
+  }
+
+  /* The popover would hang off the right edge of a 375 px screen anchored to
+     a title that may itself be wrapped. Full width of the column instead. */
+  .version-menu-wrap {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    max-width: none;
+    width: min(340px, calc(100vw - 32px));
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Visual pickers — dispositions and appearance, chosen by picture.
+ *
+ * Each option is a real render of the panel behind 2 px of ink, on the same
+ * cream paper as every other surface. The chosen one presses into its own
+ * hard shadow, the paper convention for "this is the selected object", so the
+ * state reads without colour and without a radius.
+ * ------------------------------------------------------------------ */
+.visual-picker {
+  margin: var(--space-4, 12px) 0;
+}
+
+.visual-picker-legend {
+  display: block;
+  font: 600 var(--size-12) / 1.2 var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+.visual-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.visual-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  min-width: 96px;
+  flex: 1 1 96px;
+  max-width: 148px;
+  background: var(--paper);
+  border: var(--border-2);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: center;
+  /* A comfortable tap target even before the label. */
+  min-height: var(--tap-target);
+  transition: transform 80ms steps(2), box-shadow 80ms steps(2);
+}
+
+.visual-swatch:hover {
+  box-shadow: var(--shadow-btn);
+  transform: translate(-2px, -2px);
+}
+
+.visual-swatch[data-active="true"] {
+  box-shadow: var(--shadow-btn);
+  transform: translate(-2px, -2px);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.visual-swatch:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.visual-swatch-frame {
+  display: block;
+  border: var(--border-2);
+  line-height: 0;
+  background: var(--device-white);
+}
+
+.visual-swatch-frame .frame-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.visual-swatch-label {
+  font: 600 var(--size-12) / 1.2 var(--font-body);
+  color: var(--ink);
+}
+
+.visual-picker-hint {
+  margin: 8px 0 0;
+  font: var(--size-12) / 1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+
+/* The Appearance block leading the Theme card. */
+.theme-section {
+  margin-bottom: var(--space-5, 16px);
+  padding-bottom: var(--space-5, 16px);
+  border-bottom: var(--border);
+}
+
+.theme-section-head {
+  margin: 0 0 2px;
+  font: 700 var(--size-15) / 1.2 var(--font-title);
+}
+
+.theme-section-lede {
+  margin: 0 0 12px;
+  font: var(--size-13) / 1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+
+.theme-larger {
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  /* Two per row on a phone, so the whole picker stays above the fold and the
+     page never needs to scroll sideways. Grow is off, so a lone swatch on the
+     last row stays half width instead of stretching to fill it. */
+  .visual-swatch {
+    flex: 0 1 calc(50% - 5px);
+    max-width: none;
+  }
+}
+
+/* ---------------------------------------------------- the Image module --
+   The upload-and-dither widget in the inspector. Scoped to .image-field so it
+   touches nothing else on the page; the module owns these classes. */
+.image-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-1);
+  margin: var(--pad-1) 0;
+}
+
+.image-field-head {
+  display: flex;
+  gap: var(--pad-1);
+  align-items: center;
+}
+
+.image-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pad-1);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 44px;
+  background: var(--paper);
+}
+
+.image-upload input[type="file"] {
+  /* The label carries the affordance; the native control is only its trigger. */
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+}
+
+.image-clear {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.image-preview {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  image-rendering: pixelated;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.image-knobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-1);
+}
+
+.image-toggle {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.image-toggle-btn {
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.image-toggle-btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.image-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.image-slider input[type="range"] {
+  width: 100%;
+}

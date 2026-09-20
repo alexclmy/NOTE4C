@@ -1,0 +1,95 @@
+{
+  "families": {
+    "atkinson": {
+      "copyright": "Copyright 2020 Braille Institute of America, Inc.",
+      "faces": {
+        "bold": {
+          "path": "assets/fonts/atkinson/AtkinsonHyperlegible_700Bold.ttf",
+          "sha256": "9ebfea858a99e61e2fc299d194ba55b87de4884094f86fdcb6fa0d510b9d77da"
+        },
+        "regular": {
+          "path": "assets/fonts/atkinson/AtkinsonHyperlegible_400Regular.ttf",
+          "sha256": "752bace0a9820236f24d65d680ac07aeb543c92dd903c871e09f6627261b812f"
+        }
+      },
+      "label": "Atkinson Hyperlegible",
+      "licence": "SIL Open Font License 1.1",
+      "licence_file": "assets/fonts/atkinson/OFL.txt",
+      "note": "Drawn by the Braille Institute to maximise how far apart similar letters look. Deliberately distinguishes I l 1 and O 0, which is the failure mode of a small panel read at distance.",
+      "upstream": "https://www.brailleinstitute.org/freefont",
+      "vendored_from": "npm @expo-google-fonts/atkinson-hyperlegible@0.4.1"
+    },
+    "inter": {
+      "copyright": "Copyright 2020 The Inter Project Authors",
+      "faces": {
+        "bold": {
+          "path": "assets/fonts/inter/Inter_700Bold.ttf",
+          "sha256": "fbe825cbfc749317f57a1433d3905aa9d3f388732fd29b8e8a36f34845e3bc3e"
+        },
+        "regular": {
+          "path": "assets/fonts/inter/Inter_400Regular.ttf",
+          "sha256": "a414b48aa577ef2c62ebb135341ddeef33ee26a4f5dc9f787f93c1aab08ebb50"
+        }
+      },
+      "label": "Inter",
+      "licence": "SIL Open Font License 1.1",
+      "licence_file": "assets/fonts/inter/OFL.txt",
+      "note": "Tall x-height grotesque drawn for screens. The densest of the three: fits the most words in a cell while staying readable.",
+      "upstream": "https://github.com/rsms/inter",
+      "vendored_from": "npm @expo-google-fonts/inter@0.4.2"
+    },
+    "plexmono": {
+      "copyright": "Copyright 2017 IBM Corp. with Reserved Font Name \"Plex\"",
+      "faces": {
+        "bold": {
+          "path": "assets/fonts/plexmono/IBMPlexMono_700Bold.ttf",
+          "sha256": "dbd2a2fb024579438d6400a84e57579bfd2dbe67c306c8fd9fde92a61e4f2eea"
+        },
+        "regular": {
+          "path": "assets/fonts/plexmono/IBMPlexMono_400Regular.ttf",
+          "sha256": "ab08018ccd276b79fb2c636bb95b9c543598f9d50505fe92506fcb4dae7810cd"
+        }
+      },
+      "label": "IBM Plex Mono",
+      "licence": "SIL Open Font License 1.1",
+      "licence_file": "assets/fonts/plexmono/OFL.txt",
+      "note": "Fixed pitch. Every digit is the same width, so a column of temperatures or times lines up and a changing value does not shift the ones beside it.",
+      "upstream": "https://github.com/IBM/plex",
+      "vendored_from": "npm @expo-google-fonts/ibm-plex-mono@0.4.1"
+    },
+    "poppins": {
+      "copyright": "Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins)",
+      "faces": {
+        "bold": {
+          "path": "assets/fonts/poppins/Poppins_700Bold.ttf",
+          "sha256": "983676516167748b74de6f4771fb384c664fd913acb8b471122ecacf5da5ea6c"
+        },
+        "regular": {
+          "path": "assets/fonts/poppins/Poppins_400Regular.ttf",
+          "sha256": "7e65201e9b79159e2300267cc885e16c8dcef2424cdfa09a29bfb0980a94a7ba"
+        }
+      },
+      "label": "Poppins",
+      "licence": "SIL Open Font License 1.1",
+      "licence_file": "assets/fonts/poppins/OFL.txt",
+      "note": "Geometric sans with near-circular bowls and a single-storey a. The warmest of the four and the least like a dashboard: for a panel that is a note on the wall rather than an instrument.",
+      "upstream": "https://github.com/itfoundry/Poppins",
+      "vendored_from": "Google Fonts release of Poppins 4.004 (name table: ITFO; 4.004b8)"
+    }
+  },
+  "raster": "freetype-mono-hinted",
+  "schema_version": 2,
+  "sizes": [
+    11,
+    13,
+    15,
+    18,
+    22,
+    27,
+    34
+  ],
+  "weights": [
+    "regular",
+    "bold"
+  ]
+}

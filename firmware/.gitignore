@@ -1,0 +1,65 @@
+node_modules/
+tmp/
+tmp_*/
+*.log
+*.pid
+*.err
+.claude/
+__pycache__/
+*.pyc
+
+# Local env and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+*.pem
+*.key
+*.crt
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+**/.git.backup*/
+*.swp
+*.swo
+
+# Node/frontend outputs
+npm-debug.log*
+.npm-cache/
+dist/
+dist-ssr/
+dist-desktop/
+coverage/
+
+# ESP-IDF generated outputs and local config
+firmware/.cache/
+firmware/.claude/
+firmware/__pycache__/
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/releases/
+firmware/debugscreenshot/
+firmware/pagepics/*.png
+firmware/pagepics/*.pbm
+firmware/=
+
+# Server runtime data
+server/__pycache__/
+server/*.pid
+server/*.err
+server/*.log
+server/todo.db
+server/*.db
+server/firmware/
+
+# Generated archives/binaries
+*.bin
+*.elf
+*.map
+*.zip
+*.tar.gz
+*.pbm

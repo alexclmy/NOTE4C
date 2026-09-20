@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>InkScreen 蓝牙管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .connect-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 16px;
+            transition: all 0.3s;
+        }
+        
+        .connect-btn:hover {
+            background: #2980b9;
+        }
+        
+        .connect-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .connect-btn.connected {
+            background: #27ae60;
+        }
+        
+        .status-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .status-card h2 {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-card h2 .icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .metric-value {
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .battery-bar {
+            height: 24px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .battery-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            transition: width 0.5s;
+            border-radius: 4px;
+        }
+        
+        .battery-fill.low {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+        
+        .battery-fill.medium {
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+        }
+        
+        .battery-text {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .storage-bar {
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+            display: flex;
+        }
+        
+        .storage-used {
+            background: #3498db;
+            transition: width 0.5s;
+        }
+        
+        .storage-free {
+            background: #2ecc71;
+        }
+        
+        .control-btn {
+            background: #ecf0f1;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 4px;
+            transition: all 0.3s;
+        }
+        
+        .control-btn:hover {
+            background: #bdc3c7;
+        }
+        
+        .control-btn.danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .control-btn.danger:hover {
+            background: #c0392b;
+        }
+        
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: #fff3cd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .connection-status.connected {
+            background: #d4edda;
+        }
+        
+        .connection-status .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ffc107;
+        }
+        
+        .connection-status.connected .dot {
+            background: #28a745;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #3498db;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .error-msg {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 16px;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+        
+        /* Toggle switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+        }
+        
+        .toggle-label {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .toggle-switch {
+            width: 48px;
+            height: 24px;
+            background: #bdc3c7;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.3s;
+        }
+        
+        .toggle-switch.active {
+            background: #27ae60;
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+        
+        .toggle-switch.active::after {
+            transform: translateX(24px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔋 InkScreen</h1>
+            <div class="subtitle">墨水屏蓝牙管理面板</div>
+        </div>
+        
+        <div id="errorMsg" class="error-msg hidden"></div>
+        
+        <div id="connectionStatus" class="connection-status">
+            <div class="dot"></div>
+            <span id="statusText">未连接</span>
+        </div>
+        
+        <button id="connectBtn" class="connect-btn" onclick="connectBluetooth()">
+            连接设备
+        </button>
+        
+        <!-- 电池状态 -->
+        <div class="status-card">
+            <h2>
+                <span class="icon">🔋</span>
+                电池状态
+            </h2>
+            <div class="metric">
+                <span class="metric-label">电量</span>
+                <span class="metric-value" id="batteryLevel">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">状态</span>
+                <span class="metric-value" id="batteryStatus">--</span>
+            </div>
+            <div class="battery-bar">
+                <div class="battery-fill" id="batteryFill" style="width: 0%"></div>
+                <span class="battery-text" id="batteryText">--</span>
+            </div>
+        </div>
+        
+        <!-- 内存状态 -->
+        <div class="status-card">
+            <h2>
+                <span class="icon">💾</span>
+                内存状态
+            </h2>
+            <div class="metric">
+                <span class="metric-label">内部 RAM</span>
+                <span class="metric-value" id="internalRam">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">PSRAM</span>
+                <span class="metric-value" id="psram">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">最小剩余</span>
+                <span class="metric-value" id="minFreeRam">--</span>
+            </div>
+        </div>
+        
+        <!-- 存储状态 -->
+        <div class="status-card">
+            <h2>
+                <span class="icon">📁</span>
+                SPIFFS 存储
+            </h2>
+            <div class="metric">
+                <span class="metric-label">总空间</span>
+                <span class="metric-value" id="storageTotal">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">已使用</span>
+                <span class="metric-value" id="storageUsed">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">图片数量</span>
+                <span class="metric-value" id="photoCount">--</span>
+            </div>
+            <div class="storage-bar">
+                <div class="storage-used" id="storageUsedBar" style="width: 0%"></div>
+                <div class="storage-free" id="storageFreeBar" style="width: 100%"></div>
+            </div>
+        </div>
+        
+        <!-- 系统信息 -->
+        <div class="status-card">
+            <h2>
+                <span class="icon">⚙️</span>
+                系统信息
+            </h2>
+            <div class="metric">
+                <span class="metric-label">运行时间</span>
+                <span class="metric-value" id="uptime">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">CPU 频率</span>
+                <span class="metric-value" id="cpuFreq">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">WiFi 状态</span>
+                <span class="metric-value" id="wifiStatus">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">固件版本</span>
+                <span class="metric-value" id="fwVersion">--</span>
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="status-card">
+            <h2>
+                <span class="icon">🎛️</span>
+                控制面板
+            </h2>
+            
+            <div class="toggle-container">
+                <span class="toggle-label">蓝牙广播</span>
+                <div class="toggle-switch" id="bleToggle" onclick="toggleBle()"></div>
+            </div>
+            
+            <div class="controls-grid">
+                <button class="control-btn" onclick="refreshStatus()">刷新状态</button>
+                <button class="control-btn" onclick="syncTime()">同步时间</button>
+                <button class="control-btn" onclick="clearCache()">清理缓存</button>
+                <button class="control-btn danger" onclick="restartDevice()">重启设备</button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            InkScreen v1.0 • Web Bluetooth API<br>
+            需要Chrome/Edge/Safari支持
+        </div>
+    </div>
+    
+    <script>
+        // BLE Service UUIDs (需要在固件中实现)
+        const INKSCREEN_SERVICE_UUID = '0000fff0-0000-1000-8000-00805f9b34fb';
+        
+        // Characteristic UUIDs
+        const BATTERY_CHAR_UUID = '0000fff1-0000-1000-8000-00805f9b34fb';
+        const MEMORY_CHAR_UUID = '0000fff2-0000-1000-8000-00805f9b34fb';
+        const STORAGE_CHAR_UUID = '0000fff3-0000-1000-8000-00805f9b34fb';
+        const SYSTEM_CHAR_UUID = '0000fff4-0000-1000-8000-00805f9b34fb';
+        const CONTROL_CHAR_UUID = '0000fff5-0000-1000-8000-00805f9b34fb';
+        
+        let device = null;
+        let server = null;
+        let characteristics = {};
+        
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+        
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            const textEl = document.getElementById('statusText');
+            const btnEl = document.getElementById('connectBtn');
+            
+            if (connected) {
+                statusEl.classList.add('connected');
+                textEl.textContent = '已连接: ' + device.name;
+                btnEl.textContent = '断开连接';
+                btnEl.classList.add('connected');
+            } else {
+                statusEl.classList.remove('connected');
+                textEl.textContent = '未连接';
+                btnEl.textContent = '连接设备';
+                btnEl.classList.remove('connected');
+                device = null;
+                server = null;
+                characteristics = {};
+            }
+        }
+        
+        async function connectBluetooth() {
+            if (device) {
+                // Disconnect
+                if (server) server.disconnect();
+                updateConnectionStatus(false);
+                return;
+            }
+            
+            try {
+                // Request device
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'InkScreen' }],
+                    optionalServices: [INKSCREEN_SERVICE_UUID]
+                });
+                
+                console.log('Found device:', device.name);
+                
+                device.addEventListener('gattserverdisconnected', () => {
+                    updateConnectionStatus(false);
+                });
+                
+                // Connect to GATT
+                server = await device.gatt.connect();
+                console.log('Connected to GATT server');
+                
+                // Get service
+                const service = await server.getPrimaryService(INKSCREEN_SERVICE_UUID);
+                console.log('Got service');
+                
+                // Get characteristics
+                characteristics.battery = await service.getCharacteristic(BATTERY_CHAR_UUID);
+                characteristics.memory = await service.getCharacteristic(MEMORY_CHAR_UUID);
+                characteristics.storage = await service.getCharacteristic(STORAGE_CHAR_UUID);
+                characteristics.system = await service.getCharacteristic(SYSTEM_CHAR_UUID);
+                characteristics.control = await service.getCharacteristic(CONTROL_CHAR_UUID);
+                
+                console.log('Got all characteristics');
+                
+                updateConnectionStatus(true);
+                
+                // Read initial data
+                await refreshStatus();
+                
+            } catch (error) {
+                console.error('BLE error:', error);
+                showError('连接失败: ' + error.message);
+                updateConnectionStatus(false);
+            }
+        }
+        
+        function parseBatteryData(data) {
+            // Expected: [level(0-100), charging(0/1), discharging(0/1)]
+            const level = data.getUint8(0);
+            const charging = data.getUint8(1);
+            const discharging = data.getUint8(2);
+            
+            document.getElementById('batteryLevel').textContent = level + '%';
+            document.getElementById('batteryStatus').textContent = 
+                charging ? '充电中' : (discharging ? '放电中' : '待机');
+            
+            const fill = document.getElementById('batteryFill');
+            fill.style.width = level + '%';
+            
+            if (level < 20) fill.classList.add('low');
+            else if (level < 50) fill.classList.add('medium');
+            else fill.classList.remove('low', 'medium');
+            
+            document.getElementById('batteryText').textContent = level + '%';
+        }
+        
+        function parseMemoryData(data) {
+            // Expected: 4 x uint32 (internal_free, internal_total, psram_free, psram_total, min_free)
+            const internalFree = data.getUint32(0, true);
+            const internalTotal = data.getUint32(4, true);
+            const psramFree = data.getUint32(8, true);
+            const psramTotal = data.getUint32(12, true);
+            const minFree = data.getUint32(16, true);
+            
+            document.getElementById('internalRam').textContent = 
+                formatBytes(internalFree) + ' / ' + formatBytes(internalTotal);
+            document.getElementById('psram').textContent = 
+                psramTotal > 0 ? formatBytes(psramFree) + ' / ' + formatBytes(psramTotal) : '未启用';
+            document.getElementById('minFreeRam').textContent = formatBytes(minFree);
+        }
+        
+        function parseStorageData(data) {
+            // Expected: 4 x uint32 (total, used, free, photo_count, txt_count)
+            const total = data.getUint32(0, true);
+            const used = data.getUint32(4, true);
+            const free = data.getUint32(8, true);
+            const photoCount = data.getUint16(12, true);
+            const txtCount = data.getUint16(14, true);
+            
+            document.getElementById('storageTotal').textContent = formatBytes(total);
+            document.getElementById('storageUsed').textContent = formatBytes(used);
+            document.getElementById('photoCount').textContent = photoCount + ' 张';
+            
+            const usedPercent = (used / total) * 100;
+            document.getElementById('storageUsedBar').style.width = usedPercent + '%';
+            document.getElementById('storageFreeBar').style.width = (100 - usedPercent) + '%';
+        }
+        
+        function parseSystemData(data) {
+            // Expected: uptime_sec(4), cpu_freq(2), wifi_status(1), fw_version_len(1), fw_version(N)
+            const uptimeSec = data.getUint32(0, true);
+            const cpuFreq = data.getUint16(4, true);
+            const wifiStatus = data.getUint8(6);
+            const fwLen = data.getUint8(7);
+            
+            let fwVersion = '';
+            for (let i = 0; i < fwLen; i++) {
+                fwVersion += String.fromCharCode(data.getUint8(8 + i));
+            }
+            
+            document.getElementById('uptime').textContent = formatUptime(uptimeSec);
+            document.getElementById('cpuFreq').textContent = cpuFreq + ' MHz';
+            document.getElementById('wifiStatus').textContent = 
+                wifiStatus === 1 ? '已连接' : '未连接';
+            document.getElementById('fwVersion').textContent = fwVersion || 'unknown';
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function formatUptime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return `${h}h ${m}m ${s}s`;
+        }
+        
+        async function refreshStatus() {
+            if (!characteristics.battery) {
+                showError('未连接设备');
+                return;
+            }
+            
+            try {
+                // Read all characteristics
+                const batteryData = await characteristics.battery.readValue();
+                parseBatteryData(batteryData);
+                
+                const memoryData = await characteristics.memory.readValue();
+                parseMemoryData(memoryData);
+                
+                const storageData = await characteristics.storage.readValue();
+                parseStorageData(storageData);
+                
+                const systemData = await characteristics.system.readValue();
+                parseSystemData(systemData);
+                
+            } catch (error) {
+                showError('读取失败: ' + error.message);
+            }
+        }
+        
+        async function sendCommand(cmd) {
+            if (!characteristics.control) {
+                showError('未连接设备');
+                return;
+            }
+            
+            const encoder = new TextEncoder();
+            await characteristics.control.writeValue(encoder.encode(cmd));
+        }
+        
+        async function toggleBle() {
+            const toggle = document.getElementById('bleToggle');
+            const newState = !toggle.classList.contains('active');
+            
+            await sendCommand(newState ? 'BLE_ON' : 'BLE_OFF');
+            toggle.classList.toggle('active');
+        }
+        
+        async function syncTime() {
+            await sendCommand('SYNC_TIME:' + Date.now());
+        }
+        
+        async function clearCache() {
+            await sendCommand('CLEAR_CACHE');
+        }
+        
+        async function restartDevice() {
+            if (confirm('确定要重启设备吗？')) {
+                await sendCommand('REBOOT');
+            }
+        }
+        
+        // Mock data for demo (when BLE not available)
+        function loadMockData() {
+            parseBatteryData(new DataView(new Uint8Array([75, 1, 0]).buffer));
+            parseMemoryData(new DataView(new Uint8Array([
+                320, 0, 0, 0,  // 320KB free internal
+                512, 0, 0, 0,  // 512KB total internal
+                7800, 0, 0, 0, // 7.8MB free PSRAM
+                8192, 0, 0, 0, // 8MB total PSRAM
+                280, 0, 0, 0   // 280KB min free
+            ]).buffer));
+            parseStorageData(new DataView(new Uint8Array([
+                1048576, 0, 0, 0,  // 1MB total
+                256000, 0, 0, 0,   // 256KB used
+                792576, 0, 0, 0,   // free
+                12, 0,             // 12 photos
+                3, 0               // 3 txt
+            ]).buffer));
+            parseSystemData(new DataView(new Uint8Array([
+                5040, 0, 0, 0,     // 1h 24m uptime
+                240, 0,            // 240 MHz
+                1,                 // WiFi connected
+                8,                 // fw version length
+                118, 51, 46, 54, 46, 48, 45, 114, 99  // "v3.6.0-rc"
+            ]).buffer));
+        }
+        
+        // Check Web Bluetooth availability
+        if (!navigator.bluetooth) {
+            showError('当前浏览器不支持 Web Bluetooth，请使用 Chrome/Edge');
+            // Load mock data for demo
+            loadMockData();
+        }
+    </script>
+</body>
+</html>

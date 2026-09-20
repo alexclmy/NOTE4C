@@ -1,0 +1,2933 @@
+/*
+ * Application chrome.
+ *
+ * Ink on cream paper, 2 px borders, hard shadows with no blur, zero radius.
+ * A raised control moves into its own shadow when pressed instead of changing
+ * colour. Yellow is the primary action and the colour of pending; red is
+ * destructive, failed and uncertain. Nothing else gets colour.
+ *
+ * The comments in this file are mostly about defects that were found the hard
+ * way — a horizontal scroll at 375 px, two copies of the same badge on a
+ * phone, a shadow pushing a card past the viewport. They are carried forward
+ * with the code they explain, because the rules read as arbitrary without
+ * them and get "tidied" away.
+ */
+
+/* ------------------------------------------------------------------ shell -- */
+
+/*
+ * A column, not a grid. The navigation used to be a 208 px rail down the left;
+ * it is now a sticky header with a horizontal tab row under it, so the shell
+ * has nothing left to lay out beside the content.
+ */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/*
+ * The first focusable thing on the page, and invisible until it is focused.
+ * Four nav buttons before the content is cheap with a mouse and expensive with
+ * a keyboard, on every single page.
+ */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--ink);
+  color: var(--paper);
+  padding: var(--pad-2) var(--pad-3);
+  border: var(--border-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: var(--pad-2);
+  top: var(--pad-2);
+}
+
+/* ----------------------------------------------------------------- banner -- */
+
+/*
+ * The SIMULATED strip. Full-bleed yellow above the header, because the one
+ * thing it must never do is look like part of the page it is labelling.
+ */
+.simulated-banner {
+  background: var(--accent-yellow);
+  border-bottom: var(--border-2);
+  color: var(--ink);
+  padding: var(--pad-1) var(--pad-3);
+  font-size: var(--size-12);
+  display: flex;
+  gap: var(--pad-2);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.simulated-banner .banner-word {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-11);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/*
+ * Sticky ONLY above 760 px, and the reason changed with the layout but the
+ * conclusion did not. The header below is sticky, so on a desktop the banner
+ * has to stay with it or the two separate as the page scrolls and a yellow
+ * strip reappears halfway down the document. Below 760 px a fixed strip across
+ * the top of a 667 px-tall screen is a sixth of the viewport spent on a label,
+ * and it swallows taps aimed at whatever is under it; the mobile header is not
+ * sticky either, for the same reason.
+ */
+@media (min-width: 761px) {
+  .simulated-banner {
+    position: sticky;
+    top: 0;
+    z-index: 41;
+  }
+}
+
+/* ----------------------------------------------------------------- header -- */
+
+.app-header {
+  background: var(--canvas);
+  border-bottom: var(--border-2);
+  position: sticky;
+  /*
+   * `--banner-height` is published by AppShell from a ResizeObserver on the
+   * SIMULATED banner, and falls back to 0 when there is no banner. Measured
+   * rather than guessed because the sentence wraps between 760 px and about
+   * 1100 px, and a guessed height leaves a band of scrolled content showing
+   * through between the banner and the header.
+   */
+  top: var(--banner-height, 0px);
+  z-index: 40;
+}
+
+.header-inner {
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  padding: 0 var(--pad-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pad-3);
+  min-height: var(--header-height);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+  min-height: var(--tap-target);
+  flex-shrink: 0;
+}
+
+.brand:hover {
+  color: var(--ink);
+}
+
+.brand-mark {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-yellow);
+  border: var(--border-2);
+  display: inline-block;
+  flex: none;
+}
+
+.brand-name {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: var(--size-18);
+  letter-spacing: -0.02em;
+}
+
+.brand-sub {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-10);
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  padding-top: 3px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------- the device chip --
+ *
+ * The state of the device, in the header, on every page. It is the fact every
+ * other decision in this product depends on, and it is a link to the page that
+ * explains it. One component, one translation of reading to word: see
+ * src/ui/DeviceChip.tsx and deriveDeviceState.
+ */
+
+.device-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper);
+  border: var(--border-2);
+  padding: 6px var(--pad-2);
+  min-height: var(--tap-target);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--ink);
+  text-align: left;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.device-chip:hover {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border: var(--border-2);
+  flex: none;
+}
+
+.chip-text {
+  min-width: 0;
+}
+
+.chip-title {
+  display: block;
+  font-weight: 600;
+  font-size: var(--size-13);
+  white-space: nowrap;
+}
+
+.chip-sub {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+}
+
+.device-chip:hover .chip-sub {
+  color: var(--ink);
+}
+
+/*
+ * The state-to-colour table, in one place for every dot in the product: the
+ * header chip, the Device page's Now card, and the diagnostics rows.
+ *
+ *   awake        ink, still      — it answered. A fact, and not news.
+ *   asleep       yellow, still   — the designed state. Not a fault.
+ *   pending      yellow, pulsing — something is waiting to be taken up.
+ *   uncertain    red, pulsing    — nobody knows, and a human has to decide.
+ *   unreachable  red, still      — it owed us an answer and did not give one.
+ */
+[data-device-state="awake"] .chip-dot,
+.dot-awake {
+  background: var(--ink);
+}
+
+[data-device-state="asleep"] .chip-dot,
+.dot-asleep {
+  background: var(--accent-yellow);
+}
+
+[data-device-state="pending"] .chip-dot,
+.dot-pending {
+  background: var(--accent-yellow);
+  animation: pulse var(--motion-pulse) infinite;
+}
+
+[data-device-state="uncertain"] .chip-dot,
+.dot-uncertain {
+  background: var(--accent-red);
+  animation: pulse var(--motion-pulse) infinite;
+}
+
+[data-device-state="unreachable"] .chip-dot,
+.dot-unreachable {
+  background: var(--accent-red);
+}
+
+/* -------------------------------------------------------------- top nav -- */
+
+.top-nav {
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  padding: 0 var(--pad-4);
+  display: flex;
+  gap: 4px;
+}
+
+.top-nav a {
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  border-bottom: 4px solid transparent;
+  padding: 10px var(--pad-3);
+  font-weight: 600;
+  font-size: var(--size-14);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.top-nav a:hover {
+  border-bottom-color: var(--accent-yellow);
+  color: var(--ink);
+}
+
+.top-nav a[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-bottom-color: var(--ink);
+}
+
+.top-nav a:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+
+/*
+ * Advanced is quieter than the other three. Diagnostics is a place to go when
+ * something is wrong, and giving it the same weight as Overview invites a
+ * reader to treat a log as part of the daily loop. It is not dimmed when it is
+ * the page you are on: at that point it is the subject, not a suggestion.
+ */
+.top-nav a[data-quiet="true"]:not([aria-current="page"]) {
+  opacity: 0.62;
+}
+
+.top-nav a[data-quiet="true"]:hover {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------- header utilities --
+ *
+ * Sign out and the density toggle. Exactly one copy of each at every width:
+ * on desktop they are in the header beside the chip, on a phone they are at
+ * the foot of the page under the content. The old rail kept both and a
+ * `display: none` on a phone meant the only way to sign out of the tower was
+ * to make the window wider — which is the defect this arrangement is shaped
+ * around, and why both halves below are width-exclusive rather than merely
+ * restyled.
+ */
+
+.page-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pad-2);
+  margin-top: 48px;
+  padding-top: var(--pad-3);
+  border-top: var(--border-2);
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+}
+
+.page-foot > span:first-child {
+  margin-right: auto;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The mobile tab bar, absent until there is no room for the nav row above.
+ * Declared here rather than only inside the media query so that "the tab bar
+ * is hidden on desktop" is a property of the element rather than of the
+ * absence of a rule.
+ */
+.tabs {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ main -- */
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  padding: var(--pad-4) var(--pad-4) 96px;
+  min-width: 0;
+}
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pad-2);
+  margin-bottom: var(--pad-3);
+  flex-wrap: wrap;
+}
+
+.page-head p {
+  color: var(--ink-soft);
+  font-size: var(--size-13);
+  margin: 0;
+}
+
+/*
+ * The two page grids from the prototype. `auto-fit minmax(320px, 1fr)` rather
+ * than two fixed columns: the same rule gives two columns on a desktop and one
+ * on a phone with no media query to keep in sync, and it collapses at exactly
+ * the width where a 320 px column would start truncating its own prose.
+ */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--pad-4);
+  align-items: start;
+}
+
+.grid-2 > * {
+  min-width: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-3);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ cards -- */
+
+.card {
+  border: var(--border-2);
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--pad-4);
+  /*
+   * The shadow is drawn outside the border box and is not part of layout, so
+   * a card flush against the right edge of a 375 px viewport hangs 4 px of ink
+   * past the document and the page scrolls sideways. The main's padding covers
+   * it at every width this product supports; this margin is what keeps that
+   * true when a card is nested inside something with no padding of its own.
+   */
+  margin-right: 0;
+}
+
+.card:last-child {
+  margin-bottom: 0;
+}
+
+/* A card that is the subject of its column rather than one of several. */
+.card-lg {
+  box-shadow: var(--shadow-card-lg);
+}
+
+/*
+ * A card with nothing to claim: diagnostics links, experimental corners.
+ *
+ * Dashed is this product's one way of saying "provisional" without spending a
+ * colour on it. It is used for exactly two things — a feature that has never
+ * been validated on hardware, and a page nobody needs day to day — and both
+ * are places where a solid bordered card would overstate what is there.
+ */
+.card-quiet {
+  border: var(--border-dashed);
+  background: var(--canvas);
+  box-shadow: none;
+}
+
+.card-quiet .card-head h2,
+.card-quiet .card-body {
+  color: var(--ink-soft);
+}
+
+/* The dashed link to Advanced, shaped like a card rather than a button. */
+.diag-link {
+  justify-content: flex-start;
+  text-align: left;
+  padding: 14px var(--pad-3);
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: var(--canvas);
+  border: var(--border-dashed);
+}
+
+.diag-link:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pad-2);
+  padding: var(--pad-2) var(--pad-3);
+  border-bottom: var(--border-2);
+}
+
+.card-head h2 {
+  font-size: var(--size-15);
+  font-weight: 700;
+}
+
+.card-quiet .card-head {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.card-actions {
+  display: flex;
+  gap: var(--pad-1);
+  flex-wrap: wrap;
+}
+
+.card-body {
+  padding: var(--pad-3);
+}
+
+/*
+ * A card whose head is a title and a mono fact on the same baseline, with no
+ * rule between it and the body. The prototype's Device, Now and Energy cards
+ * are all this shape: the fact is part of the heading, not a row.
+ */
+.card-plain > .card-head {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* ------------------------------------------------------------ mono labels --
+ *
+ * Spaced mono capitals. Every section label in this interface is one of these,
+ * and they are the only place text goes below 12 px: there is no prose to
+ * read, the tracking does the work, and they are always beside the thing they
+ * label rather than carrying meaning alone.
+ */
+
+.mono-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-10);
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+
+.mono-meta {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+}
+
+.mono-note {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--size-12);
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ rows --
+   A label, a value, and an explanation that can be opened. The label is the
+   control when there is a hint: see the note on Row in components.tsx. */
+
+.row {
+  padding: var(--pad-1) 0;
+  border-bottom: var(--border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row-main {
+  display: flex;
+  gap: var(--pad-2);
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.row-label {
+  color: var(--ink-soft);
+  font-size: var(--size-13);
+}
+
+button.row-label-hint {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--size-13);
+  color: var(--ink-soft);
+  /* Dotted underline: the one convention for "there is more to read here"
+     that does not compete with a link. */
+  text-decoration: underline dotted var(--rule);
+  text-underline-offset: 3px;
+}
+
+button.row-label-hint:hover {
+  color: var(--ink);
+}
+
+button.row-label-hint[aria-expanded="true"] {
+  color: var(--ink);
+  text-decoration-style: solid;
+}
+
+.row-hint {
+  margin: var(--pad-1) 0 var(--pad-1);
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+  max-width: 68ch;
+}
+
+.row-value {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  /* `anywhere` rather than `break-word`: it is the one that also shrinks the
+     element's min-content size, which is what stops a long digest or a data
+     root path from setting the width of the whole page. */
+  overflow-wrap: anywhere;
+}
+
+.row-value.gated,
+.row-value .gated {
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- controls --
+   Settings the device can actually be told to change. They live in the value
+   column of a row, so they are sized to the value rather than to a form field.
+   An edited but not yet written control is marked in yellow, which is this
+   product's one word for pending. */
+
+.row-value input[type="number"],
+.row-value input[type="text"],
+.row-value select {
+  border: var(--border-2);
+  background: var(--device-white);
+  padding: 2px var(--pad-1);
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+  text-align: right;
+}
+
+.row-value select {
+  text-align: left;
+}
+
+.row-value .dirty {
+  border-color: var(--accent-yellow);
+  box-shadow: inset 0 -3px 0 var(--accent-yellow);
+}
+
+.inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px;
+  border: 2px solid transparent;
+}
+
+.inline-edit.dirty {
+  border-color: var(--accent-yellow);
+}
+
+.inline-edit input[type="checkbox"] {
+  accent-color: var(--ink);
+  width: 18px;
+  height: 18px;
+}
+
+.inline-edit input:disabled + span {
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- badges --
+   Two colours with fixed meanings. Red is failure or a state the tower cannot
+   vouch for; yellow is pending, stale or uncertain-in-waiting. AWAKE and
+   ASLEEP are neither: they are the device working. */
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-10);
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border: 1px solid var(--ink);
+  vertical-align: middle;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.badge-displayed {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.badge-stored,
+.badge-pending {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+.badge-selected {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.badge-uncertain,
+.badge-failed,
+.badge-unreachable {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+  color: var(--paper);
+}
+
+/* Answering: stated plainly, in ink, with no colour spent on it. */
+.badge-awake {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/*
+ * Asleep is the designed state of this product, not a fault and not a warning.
+ * Yellow rather than red, and flat rather than pulsing: it is the same colour
+ * as pending because it is the same kind of fact — something the tower is
+ * waiting on — and anything louder would teach the owner that the device
+ * working correctly is something to look at.
+ */
+.badge-asleep {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+.badge-simulated {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+.badge-draft,
+.badge-archived,
+.badge-deduped,
+.badge-neutral {
+  background: var(--paper);
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+}
+
+.device-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.device-state-reason {
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- buttons --
+ *
+ * Four shapes, and the difference between them is how much they claim.
+ *
+ *   .btn           paper, 2 px ink, flat. The default.
+ *   .btn-primary   yellow and raised. One per view, ideally.
+ *   .btn-dark      ink on paper inverted. Confirmations, "do it".
+ *   .btn-danger    red border and red text, filling red on hover.
+ *
+ * A flat button inverts on hover. A raised one lifts a pixel and drops into
+ * its own shadow when pressed — the same gesture as a physical key, which is
+ * the only motion in this product that is decorative and is kept because it is
+ * the thing that makes a border-and-shadow interface feel like it is made of
+ * something.
+ */
+
+.btn {
+  border: var(--border-2);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 9px var(--pad-2);
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: var(--size-13);
+  min-height: var(--tap-target);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    transform var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+.btn-primary {
+  background: var(--accent-yellow);
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-yellow);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.btn-dark {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-dark:hover:not(:disabled) {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.btn-dark:focus-visible {
+  outline-color: var(--ink);
+}
+
+.btn-danger {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  background: var(--paper);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--accent-red);
+  color: var(--paper);
+}
+
+.btn-danger:focus-visible {
+  outline-color: var(--accent-red);
+}
+
+/*
+ * Quiet is still a bordered button, unlike the borderless one this replaces.
+ * In an interface where every affordance is a 2 px rectangle, a control with
+ * no border is not "quiet": it is not visibly a control at all.
+ */
+.btn-quiet {
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+}
+
+.btn-quiet:hover:not(:disabled) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+/* A full-width call to action with its label and its glyph pushed apart. */
+.btn-cta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: var(--pad-2);
+  box-shadow: var(--shadow-card);
+  padding: var(--pad-3) var(--pad-4);
+  font-size: var(--size-17);
+  font-weight: 700;
+  min-height: 56px;
+  text-align: left;
+}
+
+.btn-cta.btn-secondary {
+  background: var(--paper);
+  font-size: var(--size-15);
+  font-weight: 600;
+  min-height: 52px;
+  padding: var(--pad-2) var(--pad-4);
+}
+
+.btn-cta:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-card-lg);
+}
+
+.btn-cta:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+/* A segmented choice: each button is a state rather than a verb.
+   aria-pressed carries the meaning; this carries the look. */
+.segmented {
+  display: flex;
+  border: var(--border-2);
+}
+
+.segmented .btn {
+  flex: 1;
+  border: none;
+  box-shadow: none;
+  min-width: 0;
+}
+
+.segmented .btn:focus-visible {
+  outline-offset: -3px;
+}
+
+.segmented .btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.segmented .btn[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+/* A row of chips: wake intervals, ink swatches, filter choices. */
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip-row .btn {
+  font-family: var(--font-mono);
+  padding: 8px 13px;
+}
+
+.chip-row .btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.chip-row .btn[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+/* Last, so a disabled control never reads as available whatever its variant. */
+.btn:disabled,
+.btn-danger:disabled,
+.btn-primary:disabled,
+.btn-dark:disabled,
+.btn-quiet:disabled {
+  color: var(--ink-soft);
+  border-color: var(--ink-soft);
+  background: var(--canvas);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- banners -- */
+
+.banner {
+  border: var(--border-2);
+  background: var(--paper);
+  padding: var(--pad-2) var(--pad-3);
+  margin-bottom: var(--pad-3);
+  font-size: var(--size-13);
+  display: flex;
+  gap: var(--pad-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/*
+ * Tone is the whole border and, for pending, the whole fill. The old version
+ * carried it on a 3 px left edge, which was legible against a 1 px box and
+ * invisible against a 2 px one.
+ */
+.banner-attention {
+  border-color: var(--accent-red);
+}
+
+.banner-pending {
+  background: var(--accent-yellow);
+}
+
+.banner-info {
+  border-color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------- disclosure --
+   Replaces the tooltip. See src/ui/Disclosure.tsx for why a title attribute
+   was not good enough. */
+
+.disclosure {
+  display: inline;
+}
+
+.disclosure-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border: 2px solid var(--ink-soft);
+  background: var(--paper);
+  font-size: var(--size-12);
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+  margin-left: 4px;
+  font-style: italic;
+  vertical-align: middle;
+  padding: 0;
+}
+
+.disclosure-toggle:hover {
+  background: var(--accent-yellow);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.disclosure-toggle[aria-expanded="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.disclosure-body {
+  display: block;
+  margin: var(--pad-1) 0;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+  border-left: 2px solid var(--ink-soft);
+  padding-left: var(--pad-2);
+  max-width: 68ch;
+  text-align: left;
+}
+
+/*
+ * A `<details>` fold. Summaries in this interface are always mono, because
+ * "Technical details" is a label rather than prose and the mono is the signal
+ * that what is behind it is for reading, not for acting on.
+ */
+.fold {
+  border-top: var(--border);
+  margin-top: var(--pad-2);
+}
+
+.fold > summary,
+.tech-fold > summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-12);
+  padding: var(--pad-1) 0;
+  list-style-position: outside;
+  min-height: 24px;
+}
+
+.fold > summary:hover,
+.tech-fold > summary:hover {
+  color: var(--ink);
+}
+
+.tech-fold {
+  margin-top: var(--pad-2);
+}
+
+.tech-fold .fold-body,
+.tech-body {
+  font-family: var(--font-mono);
+  font-size: var(--size-12);
+  line-height: 1.8;
+  color: var(--ink-soft);
+  padding-top: var(--pad-1);
+  white-space: pre-line;
+}
+
+.fold-body {
+  padding-bottom: var(--pad-2);
+}
+
+/* ------------------------------------------------------------ page states -- */
+
+.page-state {
+  padding: var(--pad-3) 0;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-3);
+  margin-top: var(--pad-2);
+}
+
+.skeleton-card {
+  height: 96px;
+  border: var(--border-2);
+  background: var(--canvas);
+}
+
+.empty {
+  color: var(--ink-soft);
+  font-size: var(--size-13);
+}
+
+.error-note {
+  color: var(--accent-red);
+  font-weight: 500;
+  font-size: var(--size-13);
+  margin: var(--pad-1) 0 0;
+}
+
+/* ------------------------------------------------------- sticky actions -- */
+
+.sticky-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: var(--paper);
+  border-top: var(--border-2);
+  padding: var(--pad-2) var(--pad-3);
+  padding-bottom: calc(var(--pad-2) + var(--safe-bottom));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sticky-actions {
+    animation: sticky-in var(--motion-slide) ease-out;
+  }
+}
+
+@keyframes sticky-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sticky-actions-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  max-width: var(--shell-max);
+  margin: 0 auto;
+}
+
+.sticky-summary {
+  font-size: var(--size-13);
+}
+
+.sticky-buttons {
+  display: flex;
+  gap: var(--pad-1);
+  flex-wrap: wrap;
+}
+
+.sticky-detail {
+  max-width: var(--shell-max);
+  margin: var(--pad-1) auto 0;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------ bottom sheet --
+   Not modal: the canvas above it stays live. See src/ui/BottomSheet.tsx. */
+
+/*
+ * Above the sticky action bar, not under it.
+ *
+ * The bar is `z-index: 30` and pinned to the same edge, so for a while it lay
+ * across the bottom of this sheet — and the controls at the bottom of an
+ * inspector are Hide and Delete, which is to say the two the bar was
+ * swallowing. The sheet wins because it is the thing being interacted with:
+ * the bar is a reminder that something is unsaved, and it is still there the
+ * moment the sheet is closed.
+ */
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  max-height: 58vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border-top: var(--border-2);
+  padding-bottom: var(--safe-bottom);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet {
+    animation: sheet-in var(--motion-slide) ease-out;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(12%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-2);
+  padding: var(--pad-1) var(--pad-2);
+  border-bottom: var(--border-2);
+  position: relative;
+}
+
+.sheet-head h2 {
+  font-size: var(--size-15);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-grip {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 3px;
+  background: var(--rule);
+}
+
+.sheet-close {
+  min-height: var(--tap-target);
+}
+
+.sheet-body {
+  overflow-y: auto;
+  padding: var(--pad-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ------------------------------------------------------------- previews --
+ *
+ * The panel, at 400 x 300, scaled to whatever column it is in.
+ *
+ * The scale is a `transform`, not a width: the canvas has to stay exactly
+ * 400 x 300 CSS pixels because it is the renderer's own output and the
+ * browser QA compares its pixels. A transform leaves the element's layout box
+ * at full size, so the wrapper clips and is given the scaled height instead —
+ * which is what `--panel-h` is for, published from the component.
+ */
+
+.panel-scale-wrap {
+  width: 100%;
+  overflow: hidden;
+  height: var(--panel-h, 300px);
+}
+
+.panel-scale {
+  width: 400px;
+  height: 300px;
+  transform: scale(var(--panel-scale, 1));
+  transform-origin: top left;
+  background: var(--device-white);
+  outline: var(--border-2);
+  position: relative;
+}
+
+.frame-preview {
+  background: var(--device-white);
+  display: block;
+}
+
+.preview-error {
+  border: var(--border-2);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  padding: var(--pad-2);
+  font-size: var(--size-13);
+}
+
+/* ----------------------------------------------------------- compositions -- */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--pad-3);
+}
+
+.dash-card {
+  border: var(--border-2);
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/*
+ * The thumbnail is a button: the whole picture opens the editor. That is the
+ * prototype's gesture and it is the right one — the picture is what a person
+ * recognises a composition by, so it should be the thing they can press.
+ */
+.dash-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: none;
+  border-bottom: var(--border-2);
+  background: var(--device-white);
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
+.dash-thumb:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.dash-thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+  background: var(--device-white);
+}
+
+/*
+ * The state badge sits on the thumbnail, top-right, over the picture. It is
+ * the one place in the product where "what the panel is showing" and "the
+ * picture it is showing" can be seen as one object rather than as a badge
+ * under a picture.
+ */
+.dash-thumb .badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  line-height: 1.2;
+  z-index: 1;
+}
+
+.dash-body {
+  padding: var(--pad-2) var(--pad-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-2);
+  flex: 1;
+}
+
+.dash-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.dash-card h3 {
+  margin: 0;
+  font-size: var(--size-15);
+  font-weight: 600;
+}
+
+.dash-card .meta {
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.dash-card .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  align-items: center;
+}
+
+.dash-card .actions .btn-grow {
+  flex: 1;
+}
+
+/*
+ * A button whose whole label is one glyph.
+ *
+ * "⋯" is 41 px wide at this font size and weight, which is under the promise
+ * `--tap-target` makes and which the browser QA measures. The height was
+ * already right and the width was not, because a button sized to its text is
+ * sized to a character that happens to be narrow. There is exactly one of
+ * these in the product and the close control in a dialog header, which sets
+ * both of its dimensions for the same reason.
+ */
+.btn-icon {
+  min-width: var(--tap-target);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/*
+ * "On the panel" is not an action. The button keeps its place in the row so
+ * the cards stay aligned, but it says what is true rather than offering to do
+ * it again — pressing it would be a dedup, which the send flow would then have
+ * to explain. Paper-on-canvas rather than yellow: it is a statement.
+ */
+.btn-on-panel {
+  background: var(--canvas);
+}
+
+/* The "..." row: two occasional actions, revealed under the card's own rule. */
+.more-row {
+  display: flex;
+  gap: 8px;
+  border-top: var(--border-2);
+  padding-top: var(--pad-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .more-row {
+    animation: rise var(--motion-slide) ease;
+  }
+}
+
+.more-row .btn {
+  flex: 1;
+  font-weight: 500;
+}
+
+.archived-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: var(--pad-2);
+}
+
+.archived-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--pad-2);
+  border: var(--border-2-soft);
+  background: var(--paper);
+  padding: var(--pad-1) var(--pad-2);
+  flex-wrap: wrap;
+}
+
+.archived-row > span {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- forms -- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--pad-2);
+  font-size: var(--size-13);
+}
+
+.field > span {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-10);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.field input,
+.field select,
+.field textarea {
+  border: var(--border-2);
+  padding: 10px var(--pad-2);
+  background: var(--device-white);
+  font-size: var(--size-14);
+  font-weight: 500;
+  min-height: var(--tap-target);
+}
+
+/*
+ * Yellow, inset, on inputs and on the canvas tiles. Ink everywhere else.
+ *
+ * The rule is "the ring is the colour that contrasts with what it is ringing".
+ * An input is white paper inside a black border, so a black ring reads as a
+ * thicker border and not as focus; a button is already a black rectangle, so a
+ * yellow ring on it would be decoration.
+ */
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible,
+.text-role > input[type="text"]:focus-visible {
+  outline: 3px solid var(--accent-yellow);
+  outline-offset: 1px;
+}
+
+.field-hint {
+  color: var(--ink-soft);
+  font-size: var(--size-12);
+}
+
+/*
+ * A hint is prose, never a mono capital.
+ *
+ * `.field > span` sets every direct-child span in spaced uppercase, which is
+ * right for a field's LABEL and wrong for the sentence-case hint that can sit
+ * beside it (the "Larger text" note, "Print where the data came from"). This
+ * out-specifies that rule for the hint only, so the label stays a capital and
+ * the help text stays readable.
+ */
+.field > span.field-hint {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--size-12);
+}
+
+/*
+ * Native controls, in this product's ink.
+ *
+ * Every checkbox, radio and slider in the interface is a browser widget — this
+ * repository ships no control library and is not about to grow one for a tick
+ * box. `accent-color` is the whole of what is needed to stop them arriving in
+ * the platform's blue, which is the one colour in this palette that means
+ * nothing.
+ */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--ink);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
+.form-row {
+  display: flex;
+  gap: var(--pad-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.form-row .field {
+  flex: 1 1 220px;
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------ onboarding --
+ *
+ * Deliberately short. This card sits above the panel, which is the picture the
+ * whole product is about, and on a 375 px screen the first version of it took
+ * a full screenful and a half — so a new user's first sight of the tower was
+ * three paragraphs of advice about a panel they could not see. The copy was
+ * cut to one line a step; what was lost is said again, in place, by the pages
+ * the steps point at.
+ */
+
+.onboarding ol {
+  margin: 0;
+  padding-left: var(--pad-3);
+}
+
+.onboarding li {
+  margin-bottom: var(--pad-1);
+  font-size: var(--size-13);
+  line-height: 1.4;
+}
+
+.onboarding li strong {
+  font-size: var(--size-13);
+  font-family: var(--font-title);
+}
+
+.onboarding li strong::after {
+  content: " ";
+}
+
+.onboarding .btn {
+  margin-top: var(--pad-2);
+}
+
+/* ------------------------------------------------------------- now card --
+ *
+ * The device's state as a headline rather than as a badge in a toolbar. The
+ * dot is the same 12 px square the header chip uses, painted from the same
+ * `data-device-state` table, so the two cannot drift.
+ */
+
+.now-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.now-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.now-line strong {
+  font-size: var(--size-17);
+  font-weight: 600;
+}
+
+.now-facts {
+  display: flex;
+  gap: var(--pad-3);
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------- narrative card --
+ *
+ * WHAT WE KNOW / WHAT YOU CAN DO NOW / WHAT HAPPENS NEXT.
+ *
+ * Three questions in the order a person actually asks them, each answered in
+ * one sentence derived from the same `deriveDeviceState` reading the chip
+ * uses. This replaces a row of facts: "battery 82%, next wake 07:30, seq 41"
+ * is data, and a person standing in their kitchen wants to know whether they
+ * can change what the panel says.
+ */
+
+.know-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-2);
+  margin-top: var(--pad-2);
+}
+
+.know-grid p {
+  margin: 4px 0 0;
+  font-size: var(--size-14);
+  line-height: 1.5;
+}
+
+/*
+ * The resolution box: the only thing on the Overview that can be acted on
+ * while a send is unresolved. Red, because sending is paused, and boxed
+ * rather than tinted so it survives being read at a glance.
+ */
+.resolve-box {
+  margin-top: var(--pad-2);
+  border: 2px solid var(--accent-red);
+  background: var(--paper);
+  padding: var(--pad-2) var(--pad-3);
+}
+
+.resolve-box > p:first-child {
+  margin: 0 0 var(--pad-2);
+  font-weight: 500;
+  font-size: var(--size-13);
+  line-height: 1.5;
+  color: var(--accent-red);
+}
+
+.resolve-actions {
+  display: flex;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+}
+
+/* A yellow card that is entirely one fact: something is queued. */
+.pending-card {
+  border: var(--border-2);
+  background: var(--accent-yellow);
+  padding: var(--pad-3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pending-card {
+    animation: rise var(--motion-rise) ease;
+  }
+}
+
+.pending-card p {
+  margin: 8px 0 var(--pad-2);
+  font-weight: 500;
+  font-size: var(--size-15);
+}
+
+.pending-card .mono-label {
+  color: var(--ink);
+}
+
+/* ----------------------------------------------------------- text roles --
+ *
+ * A text role: the words, whether they are shown, and how they are set.
+ *
+ * The wording and the shown switch are always visible because they are what
+ * gets changed; the typography folds away behind a summary because a module
+ * can carry six roles and six expanded type panels would be a wall. The
+ * summary states the current font, size and weight, so the panel does not
+ * have to be opened to read what it says.
+ */
+.text-role {
+  border: var(--border-2);
+  padding: var(--pad-2);
+  margin-bottom: var(--pad-2);
+  background: var(--canvas);
+}
+
+.text-role-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pad-1);
+  margin-bottom: 6px;
+  font-size: var(--size-13);
+}
+
+.text-role-head label {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-10);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.text-role-toggle {
+  color: var(--ink-soft);
+  font-size: var(--size-12);
+  white-space: nowrap;
+}
+
+.text-role > input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  border: var(--border-2);
+  padding: 10px var(--pad-2);
+  background: var(--device-white);
+  font-size: var(--size-14);
+  font-weight: 500;
+  min-height: var(--tap-target);
+}
+
+.type-details {
+  margin-top: var(--pad-1);
+}
+
+.type-details > summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: var(--size-12);
+  /* A comfortable touch target on a phone without a button's visual weight. */
+  padding: 6px 0;
+}
+
+/*
+ * auto-fit rather than a fixed column count: five type controls sit in one
+ * row on a desktop inspector and reflow to two on a phone, with no media
+ * query to keep in sync with the sidebar width.
+ */
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--pad-1);
+  margin-top: var(--pad-1);
+}
+
+.type-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--size-12);
+}
+
+.type-field span {
+  color: var(--ink-soft);
+}
+
+.type-field select {
+  border: var(--border-2);
+  padding: 6px;
+  background: var(--paper);
+  font-size: var(--size-13);
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+}
+
+/* ------------------------------------------------------------ ink swatches --
+ *
+ * The colour tokens, as 44 px squares.
+ *
+ * Five, not the prototype's four. The prototype offered the four raw pigments;
+ * the real model is a token — inherit, ink, paper, accent, highlight — that a
+ * dashboard's theme resolves to a pigment, which is what lets a theme switch a
+ * pigment off and have every module follow. The swatch shows the *resolved*
+ * pigment, so what is on the button is what lands on the panel, and the
+ * tokens are what is stored.
+ */
+
+.ink-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ink-chip {
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border: var(--border-2);
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.ink-chip[aria-pressed="true"] {
+  border-width: 4px;
+}
+
+/*
+ * The inherit swatch has no pigment of its own to show, so it says so with a
+ * diagonal. A blank square would read as white, which is a pigment.
+ */
+.ink-chip[data-token="inherit"] {
+  background-image: linear-gradient(
+    to bottom right,
+    transparent calc(50% - 1px),
+    var(--ink-soft) calc(50% - 1px),
+    var(--ink-soft) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+/*
+ * The list rows and the conditions: repeating editors where a line can be
+ * reordered, hidden or deleted. One row per line on desktop, wrapping on a
+ * phone, because the controls have to stay reachable with a thumb.
+ */
+.row-editor {
+  list-style: none;
+  margin: var(--pad-1) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-1);
+}
+
+.row-editor > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: var(--border-2);
+  padding: 6px;
+  background: var(--paper);
+}
+
+.row-editor input[type="text"],
+.row-editor input[type="date"],
+.row-editor input[type="number"] {
+  flex: 1 1 140px;
+  min-width: 0;
+  box-sizing: border-box;
+  border: var(--border-2);
+  padding: var(--pad-1);
+  background: var(--device-white);
+  font-size: var(--size-13);
+  min-height: 38px;
+}
+
+.row-editor select {
+  border: var(--border-2);
+  padding: 4px;
+  background: var(--paper);
+  font-size: var(--size-13);
+  min-height: 34px;
+}
+
+.row-editor .btn {
+  min-height: 34px;
+  min-width: 34px;
+  padding: 4px 8px;
+}
+
+/*
+ * Finger-sized. These live in a repeating editor a thumb works down, and the
+ * default 14 px checkbox is a target you miss on a phone. The browser QA
+ * measures them, so this is a promise rather than a preference.
+ */
+.row-editor input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.row-editor .text-role-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+}
+
+.condition {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.condition-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.condition .field-hint {
+  margin: 0;
+}
+
+/* The preview inside the "apply to all text roles" confirmation. */
+.theme-preview {
+  border: var(--border-2);
+  padding: 4px;
+  background: var(--canvas);
+  overflow: auto;
+}
+
+.theme-preview canvas {
+  display: block;
+}
+
+.overflow-note {
+  color: var(--accent-red);
+  font-size: var(--size-12);
+  margin: 0 0 var(--pad-2);
+}
+
+/* --------------------------------------------------------------- dialog -- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pad-3);
+  z-index: 60;
+}
+
+.modal {
+  background: var(--paper);
+  border: var(--border-2);
+  box-shadow: var(--shadow-modal);
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Wide enough for three 180 px thumbnails and their gaps. */
+.modal-wide {
+  max-width: 680px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal {
+    animation: rise var(--motion-rise) ease;
+  }
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--pad-2);
+  padding: var(--pad-2) var(--pad-4);
+  border-bottom: var(--border-2);
+}
+
+.modal-head h2 {
+  font-size: var(--size-18);
+  font-weight: 700;
+}
+
+.modal-head p {
+  margin: 2px 0 0;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+}
+
+/*
+ * 44, not the prototype's 40. Everything a finger has to hit in this product
+ * is at least `--tap-target`, the browser QA measures it, and a close button
+ * is the control a person reaches for fastest and least carefully.
+ */
+.modal-close {
+  width: var(--tap-target);
+  height: var(--tap-target);
+  min-height: var(--tap-target);
+  flex: none;
+  font-size: var(--size-15);
+  font-weight: 700;
+  padding: 0;
+}
+
+.modal-content {
+  padding: var(--pad-4);
+}
+
+.modal-body {
+  font-size: var(--size-14);
+  margin: 0 0 var(--pad-2);
+}
+
+.modal-body .field span,
+.modal-body code {
+  color: var(--ink);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pad-2);
+  flex-wrap: wrap;
+  padding: 0 var(--pad-4) var(--pad-4);
+}
+
+/* --------------------------------------------------------------- tables -- */
+
+/*
+ * The ledger and the audit log are 6 and 7 columns of evidence. They are not
+ * reflowed into cards on a phone: the columns are the point, and a stacked
+ * variant would lose the alignment that makes a ledger readable. They scroll
+ * sideways inside their own box instead, which keeps the page itself free of
+ * horizontal scroll.
+ */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--size-13);
+  font-variant-numeric: tabular-nums;
+}
+
+table.data th,
+table.data td {
+  text-align: left;
+  padding: var(--pad-1);
+  border-bottom: var(--border);
+  vertical-align: top;
+}
+
+table.data th {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-11);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+pre.json {
+  background: var(--canvas);
+  border: var(--border-2);
+  padding: var(--pad-2);
+  overflow: auto;
+  max-height: 380px;
+  margin: 0;
+}
+
+/* --------------------------------------------------------------- listing --
+ *
+ * A bordered box of hairline-separated rows, with a footnote inside the box.
+ * The diagnostics tabs are all this shape, and the footnote is part of the
+ * evidence: "this is a log, not an archive" belongs with the log.
+ */
+
+.listing {
+  border: var(--border-2);
+  background: var(--paper);
+}
+
+.listing-row {
+  display: flex;
+  gap: var(--pad-2);
+  align-items: baseline;
+  padding: var(--pad-2) var(--pad-3);
+  border-bottom: var(--border);
+  flex-wrap: wrap;
+}
+
+.listing-row:last-of-type {
+  border-bottom: none;
+}
+
+.listing-time {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.listing-dot {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--ink);
+  flex: none;
+  transform: translateY(-1px);
+}
+
+.listing-msg {
+  font-size: var(--size-13);
+  flex: 1;
+  min-width: 200px;
+}
+
+.listing-key {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+  width: 150px;
+  flex: none;
+}
+
+.listing-val {
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+  flex: 1;
+  min-width: 180px;
+  overflow-wrap: anywhere;
+}
+
+.listing-foot {
+  margin: 0;
+  padding: var(--pad-2) var(--pad-3);
+  border-top: var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+}
+
+/* Tabs that sit on a rule, the way a folder tab sits on a drawer. */
+.tab-row {
+  display: flex;
+  gap: 4px;
+  margin: var(--pad-3) 0 var(--pad-4);
+  border-bottom: var(--border-2);
+  flex-wrap: wrap;
+}
+
+.tab-row .btn {
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.tab-row .btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.tab-row .btn[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- login -- */
+
+.login-wrap {
+  max-width: 460px;
+  margin: 10vh auto;
+  padding: var(--pad-4);
+}
+
+.login-wrap h1 {
+  margin-bottom: var(--pad-2);
+}
+
+.login-wrap p {
+  color: var(--ink-soft);
+  font-size: var(--size-13);
+}
+
+/* ----------------------------------------------------------------- power --
+   The mode is a choice between states; the window is a sub-choice of one of
+   them; and everything with a consequence is fenced off below a rule. */
+
+.power-modes {
+  margin-top: var(--pad-3);
+  padding-top: var(--pad-2);
+  border-top: var(--border-2);
+}
+
+.power-modes h3,
+.danger-zone h3 {
+  font-family: var(--font-mono);
+  font-size: var(--size-10);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  margin-bottom: var(--pad-2);
+}
+
+/*
+ * The energy modes, as radio cards rather than a select.
+ *
+ * Each one states its cost in the same sentence as its name, because the
+ * choice being made is a battery trade and a list of three equal-looking
+ * options hides that. The selected one fills yellow: it is a pending-shaped
+ * fact — this is what the device has been asked to be.
+ */
+.mode-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad-2);
+}
+
+.mode-card {
+  text-align: left;
+  background: var(--paper);
+  border: var(--border-2);
+  padding: var(--pad-2) var(--pad-3);
+  cursor: pointer;
+  min-height: var(--tap-target);
+  font: inherit;
+  color: var(--ink);
+  display: block;
+  width: 100%;
+}
+
+.mode-card:hover:not(:disabled) {
+  background: var(--accent-yellow);
+}
+
+.mode-card[aria-pressed="true"] {
+  background: var(--accent-yellow);
+}
+
+.mode-card:disabled {
+  cursor: not-allowed;
+  color: var(--ink-soft);
+  border-color: var(--ink-soft);
+}
+
+.mode-card-name {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--pad-2);
+  font-weight: 600;
+  font-size: var(--size-14);
+}
+
+.mode-card-desc {
+  display: block;
+  font-size: var(--size-13);
+  line-height: 1.5;
+  margin-top: 3px;
+}
+
+.mode-card-warning {
+  display: block;
+  font-size: var(--size-12);
+  line-height: 1.5;
+  margin-top: 6px;
+  font-weight: 500;
+  color: var(--accent-red);
+}
+
+.window-choice {
+  border: var(--border-2);
+  padding: var(--pad-1) var(--pad-2) var(--pad-2);
+  margin: var(--pad-2) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pad-2);
+}
+
+.window-choice legend {
+  font-family: var(--font-mono);
+  font-size: var(--size-10);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 0 4px;
+}
+
+.window-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--size-13);
+  min-height: var(--tap-target);
+  cursor: pointer;
+}
+
+.window-choice input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--ink);
+}
+
+/*
+ * A fence, not a decoration. Everything inside it does something to hardware
+ * that cannot be undone from this screen, and the red rule is the same red
+ * this product uses for destructive and for failure — never anywhere else.
+ */
+.danger-zone {
+  margin-top: var(--pad-3);
+  border: 2px solid var(--accent-red);
+  padding: var(--pad-2) var(--pad-3) var(--pad-3);
+}
+
+.danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pad-2);
+  align-items: center;
+  margin-top: var(--pad-2);
+}
+
+/* ----------------------------------------------------------------- toast --
+   One at a time, never an overlay: it reports what just happened and must not
+   trap focus or block the thing it is reporting on. See src/ui/Toast.tsx. */
+
+.toast {
+  position: fixed;
+  bottom: var(--pad-4);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-13);
+  padding: var(--pad-2) var(--pad-3);
+  border: var(--border-2);
+  box-shadow: var(--shadow-toast);
+  z-index: 70;
+  max-width: 90vw;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: rise var(--motion-rise) ease;
+  }
+}
+
+/* ------------------------------------------------------------ send flow -- */
+
+.send-review {
+  display: flex;
+  gap: var(--pad-3);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.send-thumb {
+  width: 180px;
+  flex: none;
+  border: var(--border-2);
+  background: var(--device-white);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.send-thumb img,
+.send-thumb canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.send-copy {
+  flex: 1;
+  min-width: 220px;
+}
+
+.send-copy > p:first-child {
+  margin: 0;
+  font-weight: 500;
+  font-size: var(--size-15);
+}
+
+/* The asleep warning inside a review: a fact about what will happen, in the
+   colour this product uses for "queued". */
+.send-note-queued {
+  margin: var(--pad-2) 0 0;
+  font-weight: 500;
+  font-size: var(--size-13);
+  line-height: 1.5;
+  background: var(--accent-yellow);
+  border: var(--border-2);
+  padding: 8px 10px;
+}
+
+/*
+ * The five stages of a send.
+ *
+ * Every dot is a line in the ledger or the honest absence of one: done is a
+ * transition that was written down, `now` is what the tower is actually
+ * waiting for, and todo has not happened. There is no timer advancing these.
+ */
+.stage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  display: flex;
+  gap: var(--pad-2);
+  align-items: flex-start;
+  padding: 9px 0;
+}
+
+.stage-dot {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 3px;
+  border: var(--border-2);
+  background: var(--paper);
+}
+
+.stage[data-state="done"] .stage-dot {
+  background: var(--ink);
+}
+
+.stage[data-state="now"] .stage-dot {
+  background: var(--accent-yellow);
+  animation: pulse var(--motion-pulse-step) infinite;
+}
+
+.stage-name {
+  font-weight: 600;
+  font-size: var(--size-14);
+}
+
+.stage[data-state="todo"] .stage-name {
+  color: var(--ink-soft);
+}
+
+.stage-note {
+  display: block;
+  font-size: var(--size-12);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.stage-stamp {
+  font-family: var(--font-mono);
+  font-size: var(--size-11);
+  color: var(--ink-soft);
+  margin-left: auto;
+}
+
+/* The result screens: one glyph, one sentence, one explanation. */
+.send-result {
+  text-align: center;
+  padding: var(--pad-2) 0;
+}
+
+.send-glyph {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border: var(--border-2);
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--size-24);
+  font-weight: 700;
+}
+
+.send-glyph[data-tone="done"] {
+  background: var(--ink);
+  color: var(--accent-yellow);
+  font-size: 26px;
+}
+
+.send-glyph[data-tone="queued"] {
+  background: var(--accent-yellow);
+}
+
+.send-result h3 {
+  margin: var(--pad-3) 0 4px;
+  font-size: var(--size-18);
+  font-weight: 700;
+}
+
+.send-result p {
+  margin: 0 auto;
+  max-width: 380px;
+  font-size: var(--size-13);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.send-result .mono-meta {
+  display: block;
+}
+
+.send-result .btn {
+  margin-top: var(--pad-3);
+}
+
+/* A failed or blocked send: boxed in red, with the reason spelled out. */
+.send-problem {
+  border: 2px solid var(--accent-red);
+  padding: var(--pad-2) var(--pad-3);
+}
+
+.send-problem h3 {
+  margin: 0;
+  font-size: var(--size-17);
+  font-weight: 700;
+  color: var(--accent-red);
+}
+
+.send-problem p {
+  margin: 8px 0 0;
+  font-size: var(--size-13);
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------- templates -- */
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.template-card {
+  background: var(--paper);
+  border: var(--border-2);
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: block;
+  transition:
+    transform var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.template-card:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-btn);
+}
+
+.template-thumb {
+  display: block;
+  background: var(--device-white);
+  border-bottom: var(--border-2);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.template-thumb canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.template-text {
+  display: block;
+  padding: var(--pad-2);
+}
+
+.template-text strong {
+  display: block;
+  font-size: var(--size-14);
+  font-weight: 600;
+}
+
+.template-text span {
+  display: block;
+  font-size: var(--size-11);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+/* ----------------------------------------------------------------- setup -- */
+
+.setup-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.setup-step {
+  border: var(--border-2-soft);
+  background: var(--canvas);
+  padding: var(--pad-3);
+  opacity: 0.45;
+}
+
+.setup-step[data-state="active"],
+.setup-step[data-state="done"] {
+  border-color: var(--ink);
+  opacity: 1;
+}
+
+.setup-step[data-state="active"] {
+  background: var(--paper);
+}
+
+.setup-step-head {
+  display: flex;
+  gap: var(--pad-2);
+  align-items: center;
+}
+
+.setup-num {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: var(--border-2);
+  background: var(--canvas);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--size-15);
+}
+
+.setup-step[data-state="active"] .setup-num {
+  background: var(--accent-yellow);
+}
+
+.setup-step[data-state="done"] .setup-num {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.setup-step-head strong {
+  font-size: var(--size-17);
+  font-weight: 700;
+}
+
+.setup-body {
+  margin-top: var(--pad-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .setup-body {
+    animation: rise var(--motion-slide) ease;
+  }
+}
+
+.setup-done-line {
+  margin: 8px 0 0 44px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--size-12);
+  color: var(--ink-soft);
+}
+
+.setup-complete {
+  margin-top: var(--pad-4);
+  border: var(--border-2);
+  background: var(--accent-yellow);
+  box-shadow: var(--shadow-card);
+  padding: var(--pad-3);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .setup-complete {
+    animation: rise var(--motion-rise) ease;
+  }
+}
+
+.setup-complete strong {
+  display: block;
+  font-size: var(--size-18);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* ------------------------------------------------------------ tap targets --
+ *
+ * Keyed on 1024 px rather than on the 760 px nav breakpoint, and the two are
+ * deliberately different questions. 760 px is "is there room for a horizontal
+ * nav"; this is "is a finger likely to be the pointer", and a 768 px tablet
+ * answers yes to the second and no to the first. Sizing targets by the nav
+ * breakpoint left every control on a tablet at its mouse size.
+ *
+ * `.btn` is already 44 px at every width now — the whole button scale moved up
+ * with the redesign — so what is left here is the controls that are not
+ * buttons.
+ */
+@media (max-width: 1024px) {
+  .field input,
+  .field select,
+  .field textarea,
+  .disclosure-toggle,
+  .inline-edit,
+  .row-value input,
+  .row-value select,
+  button.row-label-hint {
+    min-height: var(--tap-target);
+  }
+
+  /* A short label — "Mode", "Device" — is still a control, and 34 px of word
+     is not a target. The width is the label's, not the word's. */
+  .disclosure-toggle,
+  button.row-label-hint {
+    min-width: var(--tap-target);
+  }
+
+  .inline-edit {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .inline-edit input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* ------------------------------------------------------------- responsive -- */
+
+@media (max-width: 760px) {
+  .shell {
+    padding-bottom: calc(var(--tabs-height) + var(--safe-bottom));
+  }
+
+  /*
+   * The header stops sticking and the nav row under it disappears entirely:
+   * the tab bar at the bottom is the navigation at this width, and two copies
+   * of it would be two copies. The brand and the chip stay, because the chip
+   * is the state of the device and is the one thing worth a permanent row.
+   */
+  .app-header {
+    position: static;
+  }
+
+  .header-inner {
+    padding: 0 var(--pad-2);
+    gap: var(--pad-2);
+  }
+
+  .top-nav {
+    display: none;
+  }
+
+  .brand-sub {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  .main {
+    padding: var(--pad-3) var(--pad-2) 96px;
+  }
+
+  h1 {
+    font-size: var(--size-24);
+  }
+
+  .simulated-banner {
+    padding: var(--pad-1) var(--pad-2);
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+  }
+
+  /*
+   * The tab bar. 56 px of height plus whatever the home indicator takes, and
+   * 12 px labels: the previous 11 px text in a ~30 px tall strip was under
+   * every touch-target guideline there is and under this product's own
+   * minimum type size. The dot above each label is the prototype's marker for
+   * the current tab, and it is a second channel beside the fill — a page you
+   * are on should not be told apart by colour alone.
+   */
+  .tabs {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-top: var(--border-2);
+    background: var(--paper);
+    z-index: 40;
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .tabs a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-align: center;
+    min-height: var(--tabs-height);
+    padding: var(--pad-1) 2px;
+    font-size: var(--size-12);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .tabs a:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
+
+  .tabs a[data-quiet="true"]:not([aria-current="page"]) {
+    opacity: 0.62;
+  }
+
+  .tab-dot {
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--ink);
+    background: transparent;
+  }
+
+  .tabs a[aria-current="page"] {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .tabs a[aria-current="page"] .tab-dot {
+    background: var(--accent-yellow);
+    border-color: var(--paper);
+  }
+
+  .row-main {
+    align-items: center;
+  }
+
+  /* A dialog on a phone is the page: full width, and the actions stack so the
+     confirm is where the thumb already is. */
+  .modal-backdrop {
+    padding: var(--pad-2);
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-height: 92vh;
+    /* The hard shadow is 8 px of ink outside the border box and is not part of
+       layout, so at full width it hangs past the viewport and the backdrop
+       scrolls sideways. There is no room to show it at this width anyway. */
+    box-shadow: none;
+  }
+
+  .modal-content,
+  .modal-head {
+    padding: var(--pad-3);
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    padding: 0 var(--pad-3) var(--pad-3);
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+  }
+
+  /* The sticky bar sits above the tab bar rather than under it. */
+  .sticky-actions {
+    bottom: calc(var(--tabs-height) + var(--safe-bottom));
+    padding-bottom: var(--pad-2);
+  }
+
+  .sticky-buttons {
+    flex: 1 1 100%;
+  }
+
+  .sticky-buttons .btn {
+    flex: 1;
+  }
+
+  .sheet {
+    bottom: calc(var(--tabs-height) + var(--safe-bottom));
+    padding-bottom: 0;
+  }
+
+  /* Clear of the tab bar, the way the prototype places it. */
+  .toast {
+    bottom: calc(var(--tabs-height) + 20px + var(--safe-bottom));
+  }
+
+  /*
+   * Cards lose their shadow at the narrowest width for the same reason the
+   * modal does: 4 px of ink outside the layout box, on a card that is flush
+   * with an 12 px gutter, is 4 px the document scrolls sideways by the moment
+   * anything inside it is 100% wide. The border carries the shape.
+   */
+  .card,
+  .dash-card {
+    box-shadow: none;
+  }
+
+  .btn-cta,
+  .btn-primary {
+    box-shadow: var(--shadow-btn);
+  }
+}

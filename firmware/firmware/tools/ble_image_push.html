@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>墨水屏图片推送</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 1.5em; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: #4a69bd;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .btn:disabled { background: #666; cursor: not-allowed; }
+        .btn-secondary { background: #2d3436; }
+        .status {
+            text-align: center;
+            padding: 10px;
+            background: #16213e;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .progress-container {
+            height: 30px;
+            background: #16213e;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #4a69bd;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .preview-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .preview {
+            max-width: 200px;
+            border: 2px solid #4a69bd;
+            border-radius: 4px;
+        }
+        .preview-1bpp {
+            background: #fff;
+            filter: grayscale(100%);
+        }
+        input[type="file"] { display: none; }
+        .info {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>墨水屏图片推送</h1>
+    
+    <button id="connectBtn" class="btn">连接墨水屏</button>
+    <div id="status" class="status">未连接</div>
+    
+    <div id="controls" style="display:none;">
+        <input type="file" id="imageInput" accept="image/*">
+        <button id="selectBtn" class="btn btn-secondary">选择图片</button>
+        
+        <div class="preview-container">
+            <canvas id="previewCanvas" class="preview" width="400" height="300"></canvas>
+        </div>
+        
+        <button id="sendBtn" class="btn" disabled>发送到墨水屏</button>
+        
+        <div class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div id="progressText" class="status" style="display:none;"></div>
+    </div>
+    
+    <div class="info">
+        仅支持 Chrome/Edge/Safari 浏览器<br>
+        图片将被压缩为 400x300 1bpp (~15KB)
+    </div>
+
+<script>
+// BLE Service UUIDs (must match firmware)
+const SERVICE_UUID = 0xF000;
+const CHAR_IMAGE_DATA = 0xF001;
+const CHAR_IMAGE_CONTROL = 0xF002;
+const CHAR_DEVICE_INFO = 0xF003;
+
+// Control commands
+const CMD_START = 0x01;
+const CMD_CANCEL = 0x02;
+const CMD_COMPLETE = 0x03;
+
+// Image dimensions
+const WIDTH = 400;
+const HEIGHT = 300;
+const IMAGE_SIZE = WIDTH * HEIGHT / 8;  // 15000 bytes for 1bpp
+
+let device = null;
+let server = null;
+let service = null;
+let imageDataChar = null;
+let imageControlChar = null;
+let deviceInfoChar = null;
+let mtu = 20;  // Default MTU
+let selectedImage = null;
+
+// UI elements
+const connectBtn = document.getElementById('connectBtn');
+const statusDiv = document.getElementById('status');
+const controlsDiv = document.getElementById('controls');
+const imageInput = document.getElementById('imageInput');
+const selectBtn = document.getElementById('selectBtn');
+const sendBtn = document.getElementById('sendBtn');
+const previewCanvas = document.getElementById('previewCanvas');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+
+// Connect to BLE device
+connectBtn.onclick = async () => {
+    try {
+        statusDiv.textContent = '正在扫描...';
+        connectBtn.disabled = true;
+        
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'InkScreen' }],
+            optionalServices: [SERVICE_UUID]
+        });
+        
+        statusDiv.textContent = `已发现: ${device.name}`;
+        
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+        
+        server = await device.gatt.connect();
+        statusDiv.textContent = '已连接，获取服务...';
+        
+        // Request larger MTU
+        if (device.mtu) {
+            mtu = await device.mtu.request(247);
+        }
+        
+        service = await server.getPrimaryService(SERVICE_UUID);
+        
+        imageDataChar = await service.getCharacteristic(CHAR_IMAGE_DATA);
+        imageControlChar = await service.getCharacteristic(CHAR_IMAGE_CONTROL);
+        deviceInfoChar = await service.getCharacteristic(CHAR_DEVICE_INFO);
+        
+        // Read device info
+        const infoValue = await deviceInfoChar.readValue();
+        const info = parseDeviceInfo(infoValue);
+        statusDiv.textContent = `已连接 - 电量:${info.battery}% 存储:${info.storage}%`;
+        
+        controlsDiv.style.display = 'block';
+        connectBtn.textContent = '断开连接';
+        connectBtn.disabled = false;
+        connectBtn.onclick = disconnect;
+        
+    } catch (err) {
+        statusDiv.textContent = `连接失败: ${err.message}`;
+        connectBtn.disabled = false;
+    }
+};
+
+function disconnect() {
+    if (device && device.gatt.connected) {
+        device.gatt.disconnect();
+    }
+}
+
+function onDisconnected() {
+    statusDiv.textContent = '已断开';
+    controlsDiv.style.display = 'none';
+    connectBtn.textContent = '连接墨水屏';
+    connectBtn.onclick = connectBtn._originalOnClick;
+    device = null;
+}
+
+// Select image
+selectBtn.onclick = () => imageInput.click();
+
+imageInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    selectedImage = file;
+    processImage(file);
+};
+
+// Process image: resize + dither to 1bpp
+async function processImage(file) {
+    const img = new Image();
+    img.onload = async () => {
+        // Resize to 400x300
+        previewCanvas.width = WIDTH;
+        previewCanvas.height = HEIGHT;
+        const ctx = previewCanvas.getContext('2d');
+        
+        // Scale to fit (cover mode)
+        const scale = Math.max(WIDTH / img.width, HEIGHT / img.height);
+        const sw = WIDTH / scale;
+        const sh = HEIGHT / scale;
+        const sx = (img.width - sw) / 2;
+        const sy = (img.height - sh) / 2;
+        
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, WIDTH, HEIGHT);
+        
+        // Get grayscale data
+        const imageData = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+        
+        // Floyd-Steinberg dithering to 1bpp
+        const oneBppData = floydSteinbergDither(imageData);
+        
+        // Show preview (render 1bpp back to canvas for display)
+        render1bppPreview(ctx, oneBppData);
+        
+        sendBtn.disabled = false;
+        sendBtn.onclick = () => sendImage(oneBppData);
+    };
+    img.src = URL.createObjectURL(file);
+}
+
+// Floyd-Steinberg dithering (黑白 1bpp)
+function floydSteinbergDither(imageData) {
+    const width = imageData.width;
+    const height = imageData.height;
+    const pixels = new Float32Array(width * height);
+    
+    // Convert to grayscale (0-255)
+    for (let i = 0; i < pixels.length; i++) {
+        const r = imageData.data[i * 4];
+        const g = imageData.data[i * 4 + 1];
+        const b = imageData.data[i * 4 + 2];
+        pixels[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+    
+    // 1bpp output buffer
+    const output = new Uint8Array(IMAGE_SIZE);
+    
+    // Dither
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            const oldPixel = pixels[idx];
+            const newPixel = oldPixel < 128 ? 0 : 255;
+            const error = oldPixel - newPixel;
+            
+            // Set bit in 1bpp buffer (black = 0, white = 1)
+            const byteIdx = (y * width + x) >> 3;
+            const bitIdx = 7 - (x & 7);
+            if (newPixel >= 128) {
+                output[byteIdx] |= (1 << bitIdx);  // White
+            }
+            
+            // Distribute error
+            if (x + 1 < width) pixels[idx + 1] += error * 7 / 16;
+            if (y + 1 < height) {
+                if (x > 0) pixels[idx + width - 1] += error * 3 / 16;
+                pixels[idx + width] += error * 5 / 16;
+                if (x + 1 < width) pixels[idx + width + 1] += error * 1 / 16;
+            }
+        }
+    }
+    
+    return output;
+}
+
+// Render 1bpp preview on canvas
+function render1bppPreview(ctx, data) {
+    const imageData = ctx.createImageData(WIDTH, HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+        for (let x = 0; x < WIDTH; x++) {
+            const byteIdx = (y * WIDTH + x) >> 3;
+            const bitIdx = 7 - (x & 7);
+            const isWhite = (data[byteIdx] >> bitIdx) & 1;
+            const pixel = isWhite ? 255 : 0;
+            const i = (y * WIDTH + x) * 4;
+            imageData.data[i] = pixel;
+            imageData.data[i + 1] = pixel;
+            imageData.data[i + 2] = pixel;
+            imageData.data[i + 3] = 255;
+        }
+    }
+    ctx.putImageData(imageData, 0, 0);
+}
+
+// Send image via BLE
+async function sendImage(data) {
+    if (!imageControlChar || !imageDataChar) {
+        alert('未连接墨水屏');
+        return;
+    }
+
+    if (!confirm(`即将向 ${device?.name || 'InkScreen'} 推送一张 ${IMAGE_SIZE} bytes 的黑白图片，是否继续？`)) {
+        progressText.style.display = 'block';
+        progressText.textContent = '已取消推送';
+        return;
+    }
+    
+    sendBtn.disabled = true;
+    progressBar.style.width = '0%';
+    progressText.style.display = 'block';
+    progressText.textContent = '准备传输...';
+    
+    try {
+        // Send START command with total size
+        const startCmd = new Uint8Array([CMD_START, (IMAGE_SIZE >> 8) & 0xFF, IMAGE_SIZE & 0xFF]);
+        await imageControlChar.writeValue(startCmd);
+        
+        // Determine chunk size (MTU - 3 for ATT header)
+        const chunkSize = Math.min(mtu - 3, 244);
+        const totalChunks = Math.ceil(IMAGE_SIZE / chunkSize);
+        
+        // Send chunks
+        for (let i = 0; i < totalChunks; i++) {
+            const offset = i * chunkSize;
+            const chunk = data.slice(offset, Math.min(offset + chunkSize, IMAGE_SIZE));
+            await imageDataChar.writeValue(chunk);
+            
+            // Update progress
+            const progress = Math.round(((i + 1) / totalChunks) * 100);
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `传输中... ${progress}% (${i + 1}/${totalChunks})`;
+        }
+        
+        // Send COMPLETE command
+        const completeCmd = new Uint8Array([CMD_COMPLETE]);
+        await imageControlChar.writeValue(completeCmd);
+        
+        progressText.textContent = '传输完成！';
+        progressBar.style.width = '100%';
+        
+    } catch (err) {
+        progressText.textContent = `传输失败: ${err.message}`;
+        progressBar.style.width = '0%';
+        
+        // Send CANCEL on error
+        try {
+            await imageControlChar.writeValue(new Uint8Array([CMD_CANCEL]));
+        } catch {}
+    }
+    
+    sendBtn.disabled = false;
+}
+
+// Parse device info
+function parseDeviceInfo(value) {
+    const data = new Uint8Array(value.buffer);
+    return {
+        battery: data[0],
+        storage: data[1],
+        firmware: `${data[2]}.${data[3]}.${data[4]}`,
+        displayWidth: data[5] * 256 + (data.length > 7 ? data[7] : 0),
+        displayHeight: data[6] * 256 + (data.length > 8 ? data[8] : 0),
+    };
+}
+
+// Store original onclick
+connectBtn._originalOnClick = connectBtn.onclick;
+</script>
+</body>
+</html>

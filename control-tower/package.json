@@ -1,0 +1,35 @@
+{
+  "name": "note4c-control-tower",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx tools/tower-serve.ts dev",
+    "build": "next build",
+    "build:check": "tools/build-check.sh",
+    "start": "tsx tools/tower-serve.ts start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "mock-device": "tsx mock-device/main.ts",
+    "screenshots": "tsx tools/screenshots.ts",
+    "snapshot": "tools/public-snapshot.sh"
+  },
+  "dependencies": {
+    "next": "^15.5.25",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "tsx": "4.20.5",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "22.18.1",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "typescript": "5.9.2",
+    "vitest": "^5.0.0"
+  },
+  "description": "Local control tower for the NOTE4C e-paper panel: design dashboards, push them, and read back what the device actually reports.",
+  "license": "MIT"
+}

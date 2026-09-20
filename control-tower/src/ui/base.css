@@ -1,0 +1,164 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/*
+ * Nothing scrolled into view ends up under the sticky header.
+ *
+ * `scrollIntoView` puts an element's top edge at the top of the scrollport,
+ * which is *behind* a `position: sticky` header rather than below it. Anything
+ * that asks to be revealed — the skip link's target, a canvas tile the
+ * designer brings back after a module is added, an in-page anchor — therefore
+ * arrived hidden under 60 px of chrome and could not be clicked, because the
+ * header was over it and taking the press.
+ *
+ * `scroll-padding-top` on the scrolling element is the browser's own answer to
+ * this and applies to every kind of scroll-into-view at once, which is why it
+ * is here rather than a `scroll-margin` on each of the three call sites that
+ * would then have to be kept in step. `--banner-height` is measured by the
+ * shell; the 8 px is so a revealed element is not flush against the rule.
+ */
+html {
+  scroll-padding-top: calc(var(--banner-height, 0px) + var(--header-height) + 8px);
+}
+
+/* Below 760 px neither the banner nor the header is sticky, so there is
+   nothing overhead to clear and a padding here would just waste a screenful. */
+@media (max-width: 760px) {
+  html {
+    scroll-padding-top: 8px;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* The page is the cream canvas; cards are the lighter paper on top of it. */
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--size-15);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-yellow);
+  color: var(--ink);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--size-28);
+}
+
+h2 {
+  font-size: var(--size-15);
+  letter-spacing: 0.01em;
+}
+
+h3 {
+  font-size: var(--size-14);
+  letter-spacing: 0;
+}
+
+p {
+  margin: 0 0 var(--pad-2);
+}
+
+a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--accent-red);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * 3 px of ink, offset outwards. Thicker than the old 2 px because the whole
+ * interface is now drawn in 2 px borders, and a focus ring the same weight as
+ * the thing it is ringing is not a focus ring.
+ */
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Every status number is tabular so columns do not jitter between polls. */
+.num,
+time,
+code,
+pre {
+  font-variant-numeric: tabular-nums;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+  font-size: var(--size-13);
+}
+
+hr {
+  border: 0;
+  border-top: var(--border);
+  margin: var(--pad-3) 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/*
+ * The two animations the whole interface shares.
+ *
+ * `rise` explains where something came from: a card appearing, a dropdown, a
+ * toast. `pulse` says "this is still happening" — the step a send is currently
+ * in, and the dot on a state nobody has resolved yet. Both read their duration
+ * from a token, so reduced-motion turns them off in one place.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
