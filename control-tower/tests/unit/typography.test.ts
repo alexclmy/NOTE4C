@@ -160,6 +160,38 @@ const FONT_GOLDEN: Record<string, string> = {
     "56893cdbba357b7e0a3220855eda67233439bda9f81b7518ccbf55d81471b97f",
   "poppins/bold/34":
     "815b49e8d1ee908cdfcae9713fb5711737ceab22e821709d526ee26c6302fe84",
+  "inter/regular/48":
+    "5b572be0da78e4fadb415fda4a6439f776140be364bde88165b33dd484c75e04",
+  "inter/regular/64":
+    "e9425ac88fbd566b3bbf004dbb39f5d5a486cfb1e4c6b568346d4022c1548b6e",
+  "inter/bold/48":
+    "d60492df167f2a228682888a588ec68a0a087e4bb8dd485cecd46fa5e42654b5",
+  "inter/bold/64":
+    "ba9d1eba300e26a92fc2aa3f69ab7149d1c7c5c1f6c9bb6bb0554e613826397d",
+  "atkinson/regular/48":
+    "9225106574d745c00cfaf6fdb17ab18472de38133c4dc3c34644e1474e38685e",
+  "atkinson/regular/64":
+    "ff086a3f9f300b7556e135cc52af47dee88a89ce33462c255039dee4ee0f0620",
+  "atkinson/bold/48":
+    "4ae05fe86bc4c50997278a0077efe215372cc0794199b9a5fa673d0f4993e970",
+  "atkinson/bold/64":
+    "c7efebe2c5185b1e3dc508d9c41dbe1f00d590b11942f4b968f2a3a5eddd7c55",
+  "plexmono/regular/48":
+    "b51d72628cd6e6763504d2840714550f51cf08ce4d113fbb66fb3febf7ace4d6",
+  "plexmono/regular/64":
+    "2c07f52b30db0dc952eb800163af22e8391a17614eca79682a53c92564222f87",
+  "plexmono/bold/48":
+    "127a33bb4bb58e3de71045b34fe03b00effccbd89f1b26aba89c20f58fec3e7d",
+  "plexmono/bold/64":
+    "de6804a04fda0ae8576555f4575eed0de0bb4a010d17b4a024af27fdbe51024e",
+  "poppins/regular/48":
+    "ce62f1297d19bf2cc4f2effc1de41b6c85f1531b24fcd2cd8a1b3a2e67b724ca",
+  "poppins/regular/64":
+    "e36bbd7b0554b9ab93034be21ee5553257d3510af690bf87a3aa77b34f9f6798",
+  "poppins/bold/48":
+    "dcaed3d66adca2d6ac5c8f08013ffaead516f1d9da812ad4fd32eae1e8cbe3eb",
+  "poppins/bold/64":
+    "8a7b12100a98b0b948384560ef879789c1c1dd1f36d54d5068e2a88560780efc",
 };
 
 function digest(fb: FrameBuffer): string {
@@ -275,7 +307,7 @@ describe("text style schema", () => {
       expect(result.error.issues[0]?.message).toMatch(/committed glyph atlas/);
     }
     expect(TextStyleSchema.safeParse({ size: 9 }).success).toBe(false);
-    expect(TextStyleSchema.safeParse({ size: 48 }).success).toBe(false);
+    expect(TextStyleSchema.safeParse({ size: 100 }).success).toBe(false);
     for (const size of FONT_SIZES) {
       expect(TextStyleSchema.safeParse({ size }).success).toBe(true);
     }

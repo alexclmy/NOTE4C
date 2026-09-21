@@ -27,8 +27,8 @@ import {
 } from "@/server/sources/haSensor";
 import { readComposerFeed } from "@/server/sources/composerFeed";
 import { SourceError, fetchJson } from "@/server/sources/http";
-import { sourceBindings, sourceHealth } from "@/server/sources";
-import { starterDashboard } from "@/core/model";
+import { collectSources, sourceBindings, sourceHealth } from "@/server/sources";
+import { emptyDashboard, newModuleId, starterDashboard } from "@/core/model";
 
 const NOW = new Date("2026-09-11T05:00:00.000Z");
 
@@ -823,6 +823,60 @@ describe("source bindings", () => {
       sensors: [],
       remindersList: null,
     });
+  });
+});
+
+/**
+ * The draft-preview contract: collectSources binds against whatever document
+ * it is handed, so a module added to a not-yet-saved layout gets real data at
+ * once. This is what the designer's POST /sources relies on — the fix for a
+ * weather block reading "unavailable" on a Blank composition until first save.
+ */
+describe("collectSources binds to the document it is given", () => {
+  beforeEach(() => {
+    resetOpenMeteoCacheForTests();
+    vi.stubEnv("NOTE4C_WEATHER_LATITUDE", "0");
+    vi.stubEnv("NOTE4C_WEATHER_LONGITUDE", "0");
+    vi.stubEnv("NOTE4C_WEATHER_LABEL", "Null Island");
+    vi.stubEnv("NOTE4C_WEATHER_FALLBACK_URL", "");
+  });
+
+  it("does not fetch, and marks weather not-used, when no module binds it", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const sources = await collectSources(emptyDashboard("Blank"), NOW);
+    expect(sources.weather.detail).toBe("Not used by this dashboard");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches real weather the instant a weather module is in the draft", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify(weatherPayload()), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+    const draft = {
+      ...emptyDashboard("Blank"),
+      modules: [
+        {
+          id: newModuleId(),
+          type: "weatherHero",
+          x: 0,
+          y: 0,
+          w: 5,
+          h: 6,
+          hidden: false,
+          options: {},
+        },
+      ],
+    };
+    const sources = await collectSources(draft, NOW);
+    expect(sources.weather.state).toBe("ok");
+    expect(sources.weather.detail).not.toBe("Not used by this dashboard");
   });
 });
 

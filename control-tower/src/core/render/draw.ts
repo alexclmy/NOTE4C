@@ -194,3 +194,104 @@ export function ellipseInclusive(
     }
   }
 }
+
+/**
+ * A straight line of a given pixel WIDTH, square-stamped along a Bresenham run.
+ * width 1 is identical to {@link line}. Raw like line(): it writes indices and
+ * does not scrub accents, so a caller drawing RED/YELLOW must keep width >= 2.
+ */
+export function thickLine(
+  fb: FrameBuffer,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  color: PaletteIndex,
+  width = 1,
+): void {
+  const w = Math.max(1, Math.round(width));
+  const half = Math.floor(w / 2);
+  let x = Math.round(x0);
+  let y = Math.round(y0);
+  const ex = Math.round(x1);
+  const ey = Math.round(y1);
+  const dx = Math.abs(ex - x);
+  const dy = -Math.abs(ey - y);
+  const sx = x < ex ? 1 : -1;
+  const sy = y < ey ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    if (w === 1) fb.set(x, y, color);
+    else fb.fillRect(x - half, y - half, w, w, color);
+    if (x === ex && y === ey) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y += sy;
+    }
+  }
+}
+
+/**
+ * A circular arc outline. Angles are DEGREES clockwise from 12 o'clock
+ * (0 = top, 90 = right), the way clocks and gauges read. A full circle is
+ * arc(..., 0, 360, ...). width stamps a w×w block per sample.
+ */
+export function arc(
+  fb: FrameBuffer,
+  cx: number,
+  cy: number,
+  r: number,
+  startDeg: number,
+  endDeg: number,
+  color: PaletteIndex,
+  width = 1,
+): void {
+  if (r <= 0) return;
+  const w = Math.max(1, Math.round(width));
+  const half = Math.floor(w / 2);
+  const a0 = ((startDeg - 90) * Math.PI) / 180;
+  const a1 = ((endDeg - 90) * Math.PI) / 180;
+  const steps = Math.max(2, Math.ceil(Math.abs(a1 - a0) * r) + 1);
+  for (let i = 0; i <= steps; i += 1) {
+    const a = a0 + ((a1 - a0) * i) / steps;
+    const x = Math.round(cx + r * Math.cos(a));
+    const y = Math.round(cy + r * Math.sin(a));
+    if (w === 1) fb.set(x, y, color);
+    else fb.fillRect(x - half, y - half, w, w, color);
+  }
+}
+
+/** A dashed segment: `dash` inked pixels, then `gap` skipped, repeating. */
+export function dashedLine(
+  fb: FrameBuffer,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  color: PaletteIndex,
+  dash = 2,
+  gap = 2,
+): void {
+  const len = Math.hypot(x1 - x0, y1 - y0);
+  if (len === 0) {
+    fb.set(Math.round(x0), Math.round(y0), color);
+    return;
+  }
+  const period = Math.max(1, dash + gap);
+  const n = Math.ceil(len);
+  for (let i = 0; i <= n; i += 1) {
+    if (i % period < dash) {
+      const t = i / len;
+      fb.set(
+        Math.round(x0 + (x1 - x0) * t),
+        Math.round(y0 + (y1 - y0) * t),
+        color,
+      );
+    }
+  }
+}

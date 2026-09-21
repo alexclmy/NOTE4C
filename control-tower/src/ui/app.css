@@ -1791,6 +1791,33 @@ input[type="range"] {
   min-height: 34px;
 }
 
+/* ---------------------------------------------------------- frame edges --
+ * The four edges a module can carry a rule on, as toggle chips. A pressed
+ * chip reads as ink-on-paper — the rule it stands for.
+ */
+.frame-edges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.frame-edge {
+  border: var(--border-2);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: var(--size-12);
+  padding: 8px 4px;
+  min-height: var(--tap-target);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.frame-edge[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
 /* ------------------------------------------------------------ ink swatches --
  *
  * The colour tokens, as 44 px squares.

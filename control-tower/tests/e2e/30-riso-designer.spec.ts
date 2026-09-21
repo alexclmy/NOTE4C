@@ -88,3 +88,35 @@ test("the Appearance controls re-skin the whole panel", async ({ page }, info) =
   const bw = await stablePixels(page);
   expect(bw).not.toBe(grid);
 });
+
+test("a module's separators are toggled by edge and change the panel", async ({
+  page,
+}, info) => {
+  await openEmptyDesigner(page, `Separators ${info.project.name}`);
+  await page.getByTestId("add-headline").click();
+  await expect(page.getByTestId("module-headline")).toBeVisible();
+
+  // The Separators section is a fold, collapsed by default. Open it.
+  const fold = page.getByTestId("inspector-separators");
+  await expect(fold).toBeVisible();
+  await fold.locator("summary").click();
+  await expect(page.getByTestId("frame-controls")).toBeVisible();
+
+  const rightEdge = page.getByTestId("frame-edge-right");
+  await expect(rightEdge).toHaveAttribute("aria-pressed", "false");
+
+  // Adding a rule inks the module's right edge, so the panel changes.
+  const before = await stablePixels(page);
+  await rightEdge.click();
+  await expect(rightEdge).toHaveAttribute("aria-pressed", "true");
+  await page.waitForTimeout(250);
+  const after = await stablePixels(page);
+  expect(after).not.toBe(before);
+  await shot(page, "riso-separators", info.project.name);
+
+  // Toggling the only edge back off removes the frame entirely.
+  await rightEdge.click();
+  await expect(rightEdge).toHaveAttribute("aria-pressed", "false");
+  await page.waitForTimeout(250);
+  expect(await stablePixels(page)).toBe(before);
+});

@@ -49,7 +49,7 @@ export type FontWeight = (typeof FONT_WEIGHTS)[number];
  * The floor is 11 px. The panel previously drew as small as 10 px, and that
  * is the size the owner rejected by eye on the physical panel.
  */
-export const FONT_SIZES = [11, 13, 15, 18, 22, 27, 34] as const;
+export const FONT_SIZES = [11, 13, 15, 18, 22, 27, 34, 48, 64] as const;
 export type FontSize = (typeof FONT_SIZES)[number];
 
 export function isFontSize(value: unknown): value is FontSize {

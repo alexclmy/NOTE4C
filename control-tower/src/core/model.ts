@@ -17,6 +17,28 @@ export const RefreshIntervalSchema = z.union([
   z.null(), z.literal(5), z.literal(15), z.literal(30), z.literal(60), z.literal(180),
 ]);
 
+/**
+ * A module's frame: the hairline rules that delimit it on the panel.
+ *
+ * Modules tile the grid edge to edge with no gutter, so two adjacent blocks
+ * abut and read as one field. A single black rule on the shared edge is what
+ * turns them into two legible regions — a column rule, the newspaper move. It
+ * lives on the instance, not in module options, because it is chrome that any
+ * module can wear, not data any one module owns; the compositor draws it after
+ * the module paints. See src/core/render/frame.ts for how it is stroked.
+ */
+export const FRAME_EDGES = ["top", "right", "bottom", "left"] as const;
+export const ModuleFrameSchema = z.object({
+  edges: z.array(z.enum(FRAME_EDGES)).max(4).default([]),
+  weight: z.number().int().min(1).max(4).default(2),
+  style: z.enum(["solid", "dashed", "dotted"]).default("solid"),
+  inset: z.number().min(0).max(0.45).default(0),
+  // Palette index; black (0) by design — the one pigment the palette policy
+  // never disables, so a rule survives a black-and-white theme unchanged.
+  color: z.number().int().min(0).max(3).default(0),
+});
+export type ModuleFrame = z.infer<typeof ModuleFrameSchema>;
+
 export const ModuleInstanceSchema = z.object({
   id: z.string().min(1).max(64),
   type: z.string().min(1).max(64),
@@ -31,6 +53,8 @@ export const ModuleInstanceSchema = z.object({
    */
   hidden: z.boolean().default(false),
   options: z.record(z.string(), z.unknown()).default({}),
+  /** Optional hairline rules delimiting this module. Omitted = no frame. */
+  frame: ModuleFrameSchema.optional(),
 });
 export type ModuleInstance = z.infer<typeof ModuleInstanceSchema>;
 

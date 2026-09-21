@@ -27,6 +27,7 @@ import {
   type PixelTexture,
 } from "@/core/theme";
 import { contentRect } from "@/core/render/types";
+import { moduleDefinition } from "@/core/render/modules";
 import type { DashboardDoc, ModuleInstance } from "@/core/model";
 import { Banner, Button, Card } from "./components";
 import { ConfirmDialog } from "./Dialog";
@@ -105,25 +106,22 @@ export function ThemePanel({
     onChange({ ...doc, theme: { ...theme, expression: { ...expr, ...patch } } });
   };
 
-  // A small, fixed headline set the way this dashboard is, re-skinned for each
-  // swatch by overriding one expression field. What the swatch shows is what
-  // the renderer would draw, so the picker cannot promise a look the panel
-  // will not print.
+  // A Sky field, re-skinned for each swatch by overriding one expression field.
+  // Sky is chosen because it is almost entirely the dithered surface itself — a
+  // graded warm field and a sun — so a change of colour, brush or cell size
+  // fills the tile and reads at swatch size, where a headline showed mostly
+  // text and hid the very thing the picker is choosing. It needs no source, so
+  // every swatch renders, and it is the real renderer, so it cannot promise a
+  // look the panel will not print.
   const sampleModule: ModuleInstance = {
     id: "sample",
-    type: "headline",
+    type: "sky",
     x: 0,
     y: 0,
     w: 8,
     h: 3,
     hidden: false,
-    options: {
-      variant: "underline",
-      palette: "warm",
-      kicker: { text: "AUJOURD'HUI" },
-      headline: { text: "Bonjour" },
-      subline: { text: "Le beau temps revient" },
-    },
+    options: { ...(moduleDefinition("sky").defaultOptions as Record<string, unknown>) },
   };
   const sampleDoc = (over: Partial<Expression>): DashboardDoc =>
     thumbnailDoc(sampleModule, { x: 0, y: 1, w: 8, h: 3 }, {

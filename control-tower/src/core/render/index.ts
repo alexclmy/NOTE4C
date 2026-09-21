@@ -10,6 +10,7 @@ import {
   type DashboardTheme,
 } from "@/core/theme";
 import { emptySources, type DashboardSources } from "./data";
+import { drawModuleFrame } from "./frame";
 import { moduleDefinition } from "./modules";
 import { PANEL_TIMEZONE } from "./time";
 import { cellsToPixels, type ModuleData, type RenderContext } from "./types";
@@ -147,6 +148,12 @@ export function renderDashboard(
       ...(report ? { report: report.forModule(module.id, module.type) } : {}),
     };
     definition.render(fb, rect, dataForModule(module, sources), resolved, scoped);
+
+    // Chrome last: the module's own frame rules sit on top of its ink, at the
+    // very edge of its rectangle, delimiting it from whatever abuts it.
+    if (module.frame && module.frame.edges.length > 0) {
+      drawModuleFrame(fb, rect, module.frame);
+    }
   }
 
   // The palette policy is enforced on the finished frame rather than inside

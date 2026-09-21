@@ -30,6 +30,7 @@ test("the picker offers ready-made layouts, each drawn by the renderer", async (
   // The expressive starters, plus Blank. Each thumbnail is the real renderer
   // over the real document the button would create.
   const keys = [
+    "weatherAgenda",
     "fridge",
     "editorial",
     "weatherPoster",
@@ -117,6 +118,7 @@ test("every template produces a layout the validator accepts", async ({ page }) 
    * Creating all five is the cheapest way to assert that none of them does.
    */
   for (const key of [
+    "weatherAgenda",
     "fridge",
     "editorial",
     "weatherPoster",

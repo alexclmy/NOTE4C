@@ -469,15 +469,17 @@
 
 .gallery-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
 }
 
+/* One quiet labelled row: a line icon, the name, the space it takes. The
+   render lives on the board — the picker is for recognising, not previewing. */
 .gallery-item {
   display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
   background: var(--paper);
   border: var(--border-2);
   box-shadow: none;
@@ -502,36 +504,32 @@
   transform: translate(0, 0);
 }
 
-.gallery-thumb {
-  display: block;
-  border-bottom: var(--border-2);
-  line-height: 0;
-  background: var(--device-white);
+.gallery-icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
 }
 
-.gallery-thumb .frame-preview {
+.gallery-icon svg {
+  width: 24px;
+  height: 24px;
   display: block;
-  width: 100%;
-  height: auto;
-}
-
-.gallery-caption {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 6px 8px;
 }
 
 .gallery-name {
-  font: 600 var(--size-12) / 1.2 var(--font-body);
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 600 var(--size-12) / 1.25 var(--font-body);
   color: var(--ink);
 }
 
 .gallery-span {
+  flex: none;
   font: 600 var(--size-10) / 1.2 var(--font-mono);
   color: var(--ink-soft);
-  flex: none;
 }
 
 /* -------------------------------------------------------- fine-tune roles --

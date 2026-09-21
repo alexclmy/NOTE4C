@@ -11,6 +11,7 @@ import { octopus } from "./octopus";
 import { sky } from "./sky";
 import { timestamp } from "./timestamp";
 import { weather24h } from "./weather24h";
+import { weatherHero } from "./weatherHero";
 
 /**
  * The module registry. Adding a module here is the only step needed to make
@@ -22,6 +23,7 @@ const definitions = [
   headline,
   sky,
   weather24h,
+  weatherHero,
   calendarNext,
   haSensor,
   message,
@@ -67,4 +69,5 @@ export {
   sky,
   timestamp,
   weather24h,
+  weatherHero,
 };

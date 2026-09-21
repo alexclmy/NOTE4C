@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { z } from "zod";
-import type { ModuleInstance } from "@/core/model";
+import { FRAME_EDGES, type ModuleFrame, type ModuleInstance } from "@/core/model";
 import { moduleDefinition } from "@/core/render/modules";
 import { FONT_FAMILY_META } from "@/core/render/fonts";
 import { FONT_FAMILY_IDS, FONT_SIZES, FONT_WEIGHTS } from "@/core/font";
@@ -932,9 +932,122 @@ function ConditionsField({
   );
 }
 
+type FrameEdge = ModuleFrame["edges"][number];
+
+const FRAME_EDGE_LABEL: Record<FrameEdge, string> = {
+  top: "Top",
+  right: "Right",
+  bottom: "Bottom",
+  left: "Left",
+};
+
+const FRAME_STYLE_LABEL: Record<ModuleFrame["style"], string> = {
+  solid: "Solid",
+  dashed: "Dashed",
+  dotted: "Dotted",
+};
+
+/**
+ * Frame (divider) controls.
+ *
+ * A frame is chrome that lives on the instance, not an option in the module's
+ * schema, so it gets its own widget and its own update channel rather than
+ * riding the schema-driven form. Toggling every edge off removes the frame
+ * entirely (undefined), so a module with no rules stores nothing.
+ */
+function FrameControls({
+  frame,
+  onChange,
+}: {
+  frame: ModuleFrame | undefined;
+  onChange: (next: ModuleFrame | undefined) => void;
+}) {
+  const edges = frame?.edges ?? [];
+  const weight = frame?.weight ?? 2;
+  const style = frame?.style ?? "solid";
+  const inset = frame?.inset ?? 0;
+  const color = frame?.color ?? 0;
+
+  function emit(nextEdges: FrameEdge[], part: Partial<ModuleFrame> = {}): void {
+    if (nextEdges.length === 0) {
+      onChange(undefined);
+      return;
+    }
+    onChange({ edges: nextEdges, weight, style, inset, color, ...part });
+  }
+
+  function toggle(edge: FrameEdge): void {
+    emit(edges.includes(edge) ? edges.filter((e) => e !== edge) : [...edges, edge]);
+  }
+
+  const active = edges.length > 0;
+
+  return (
+    <div data-testid="frame-controls">
+      <p className="field-hint">
+        Hairline rules that delimit this module from what abuts it.
+      </p>
+      <div className="type-field" data-testid="frame-edges">
+        <span id="frame-edges-label">Rules on</span>
+        <div className="frame-edges" role="group" aria-labelledby="frame-edges-label">
+          {FRAME_EDGES.map((edge) => (
+            <button
+              type="button"
+              key={edge}
+              className="frame-edge"
+              aria-pressed={edges.includes(edge)}
+              aria-label={FRAME_EDGE_LABEL[edge]}
+              data-testid={`frame-edge-${edge}`}
+              onClick={() => toggle(edge)}
+            >
+              {FRAME_EDGE_LABEL[edge]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="type-grid">
+        <label className="type-field">
+          <span>Weight</span>
+          <select
+            value={weight}
+            disabled={!active}
+            data-testid="frame-weight"
+            onChange={(event) => emit(edges, { weight: Number(event.target.value) })}
+          >
+            {[1, 2, 3, 4].map((w) => (
+              <option key={w} value={w}>
+                {w} px
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="type-field">
+          <span>Style</span>
+          <select
+            value={style}
+            disabled={!active}
+            data-testid="frame-style"
+            onChange={(event) =>
+              emit(edges, { style: event.target.value as ModuleFrame["style"] })
+            }
+          >
+            {(Object.keys(FRAME_STYLE_LABEL) as ModuleFrame["style"][]).map((s) => (
+              <option key={s} value={s}>
+                {FRAME_STYLE_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function ModuleInspector({
   module,
   onChange,
+  onFrameChange,
   problems,
   overflows = [],
   notes = [],
@@ -945,6 +1058,8 @@ export function ModuleInspector({
 }: {
   module: ModuleInstance;
   onChange: (options: Record<string, unknown>) => void;
+  /** Set the module's frame (dividers). Omit to hide the Separators section. */
+  onFrameChange?: (frame: ModuleFrame | undefined) => void;
   problems: string[];
   /** Roles whose text did not fit, from the live render of this dashboard. */
   overflows?: Array<{ role: string; kind: "width" | "height" }>;
@@ -1347,6 +1462,12 @@ export function ModuleInspector({
         <Fold summary="Fine-tune" testId="inspector-finetune">
           <p className="field-hint">Type, colour and the fine print.</p>
           {fine}
+        </Fold>
+      )}
+
+      {onFrameChange && (
+        <Fold summary="Separators" testId="inspector-separators">
+          <FrameControls frame={module.frame} onChange={onFrameChange} />
         </Fold>
       )}
 

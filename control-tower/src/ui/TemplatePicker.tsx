@@ -6,6 +6,7 @@ import {
   emptyDashboard,
   newModuleId,
   type DashboardDoc,
+  type ModuleFrame,
   type ModuleInstance,
 } from "@/core/model";
 import type { Expression } from "@/core/theme";
@@ -71,6 +72,29 @@ function place(
 }
 
 /**
+ * Give a placed module a frame. A rule (or rules) on the named edges is what
+ * delimits it from whatever abuts it — the structural device that makes a
+ * multi-module composition read as designed rather than as blocks that happen
+ * to touch. `edges` is the only required part; weight/style default sensibly.
+ */
+function framed(
+  module: ModuleInstance,
+  edges: ModuleFrame["edges"],
+  extra: Partial<Omit<ModuleFrame, "edges">> = {},
+): ModuleInstance {
+  return {
+    ...module,
+    frame: {
+      edges,
+      weight: extra.weight ?? 2,
+      style: extra.style ?? "solid",
+      inset: extra.inset ?? 0,
+      color: extra.color ?? 0,
+    },
+  };
+}
+
+/**
  * A text element, in the shape the schema actually stores.
  *
  * Schema 2 moved every piece of wording from a bare string to `{ text,
@@ -99,6 +123,27 @@ function expressive(
 
 const TEMPLATES: readonly Template[] = [
   {
+    key: "weatherAgenda",
+    name: "Weather & agenda",
+    desc: "A room-readable temperature beside the day's events, split by a column rule.",
+    build: (now) =>
+      expressive(
+        {
+          ...emptyDashboard("Weather & agenda", now),
+          modules: [
+            // The hero owns the left half; its right edge is the rule that
+            // separates weather from agenda. The agenda column stacks the
+            // events, the date, and a short note, ruled off from each other.
+            framed(place("weatherHero", 0, 0, 5, 6), ["right"]),
+            framed(place("calendarNext", 5, 0, 3, 4), ["bottom"]),
+            framed(place("timestamp", 5, 4, 3, 1), ["bottom"]),
+            place("message", 5, 5, 3, 1, { body: text("À la maison") }),
+          ],
+        },
+        { colourUse: "expressive" },
+      ),
+  },
+  {
     key: "fridge",
     name: "Fridge morning",
     desc: "Weather over the day's events, with a sky to the side.",
@@ -107,8 +152,8 @@ const TEMPLATES: readonly Template[] = [
         {
           ...emptyDashboard("Fridge morning", now),
           modules: [
-            place("weather24h", 0, 0, 8, 3),
-            place("calendarNext", 0, 3, 5, 3),
+            framed(place("weather24h", 0, 0, 8, 3), ["bottom"]),
+            framed(place("calendarNext", 0, 3, 5, 3), ["right"]),
             place("sky", 5, 3, 3, 3),
           ],
         },
@@ -124,12 +169,15 @@ const TEMPLATES: readonly Template[] = [
         {
           ...emptyDashboard("Editorial note", now),
           modules: [
-            place("headline", 0, 0, 8, 3, {
-              variant: "banner",
-              kicker: text("AUJOURD'HUI"),
-              headline: text("Bonjour"),
-              subline: text("Le beau temps revient"),
-            }),
+            framed(
+              place("headline", 0, 0, 8, 3, {
+                variant: "banner",
+                kicker: text("AUJOURD'HUI"),
+                headline: text("Bonjour"),
+                subline: text("Le beau temps revient"),
+              }),
+              ["bottom"],
+            ),
             place("message", 0, 3, 8, 2, {
               body: {
                 text: "Une note pour la maison",
@@ -153,8 +201,8 @@ const TEMPLATES: readonly Template[] = [
           ...emptyDashboard("Weather poster", now),
           modules: [
             place("sky", 0, 0, 8, 4, { variant: "arc" }),
-            place("octopus", 0, 4, 2, 2),
-            place("weather24h", 2, 4, 6, 2),
+            framed(place("octopus", 0, 4, 2, 2), ["top", "right"]),
+            framed(place("weather24h", 2, 4, 6, 2), ["top"]),
           ],
         },
         { colourUse: "expressive" },
@@ -169,7 +217,7 @@ const TEMPLATES: readonly Template[] = [
         {
           ...emptyDashboard("Sky & agenda", now),
           modules: [
-            place("sky", 0, 0, 8, 3, { variant: "horizon" }),
+            framed(place("sky", 0, 0, 8, 3, { variant: "horizon" }), ["bottom"]),
             place("calendarNext", 0, 3, 8, 3),
           ],
         },
@@ -185,9 +233,9 @@ const TEMPLATES: readonly Template[] = [
         {
           ...emptyDashboard("Photo & day", now),
           modules: [
-            place("image", 0, 0, 4, 6),
-            place("calendarNext", 4, 0, 4, 4),
-            place("timestamp", 4, 4, 4, 1),
+            framed(place("image", 0, 0, 4, 6), ["right"]),
+            framed(place("calendarNext", 4, 0, 4, 4), ["bottom"]),
+            framed(place("timestamp", 4, 4, 4, 1), ["bottom"]),
             place("message", 4, 5, 4, 1, { body: text("Aujourd'hui") }),
           ],
         },

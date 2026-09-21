@@ -138,7 +138,7 @@ FAMILIES = {
 # be rasterised and committed: an arbitrary size box would promise sizes that
 # have no atlas. The steps are roughly a 1.22 ratio, which is far enough apart
 # to be a visible choice and close enough to always have a usable neighbour.
-SIZES = [11, 13, 15, 18, 22, 27, 34]
+SIZES = [11, 13, 15, 18, 22, 27, 34, 48, 64]
 
 # Latin-1 printable, which covers French, plus the ellipsis the truncator uses.
 CODEPOINTS = list(range(32, 127)) + list(range(160, 256)) + [0x2026]

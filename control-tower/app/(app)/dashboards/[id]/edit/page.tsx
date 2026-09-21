@@ -90,6 +90,11 @@ export default function DesignerPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sources, setSources] = useState<DashboardSources>(() => emptySources());
   const [error, setError] = useState("");
+
+  // The live draft, mirrored into a ref so the source fetch can read the
+  // current layout without being torn down and recreated on every keystroke.
+  const docRef = useRef<DashboardDoc | null>(null);
+  docRef.current = doc;
   const [busy, setBusy] = useState(false);
   // Starts fitted, on every form factor. The first client render happens
   // before any media query has been answered, and starting at 2x meant a
@@ -204,11 +209,22 @@ export default function DesignerPage() {
   }, [load]);
 
   // Live source data, so the preview shows what would actually ship right now.
+  // Bound against the working DRAFT (POST) whenever there is one, so a module
+  // dropped onto any composition — Blank included — shows its real data at once
+  // rather than "unavailable" until the first save. Falls back to the saved
+  // record (GET) before the draft has loaded.
   const refreshSources = useCallback(async () => {
+    const draft = docRef.current;
     try {
-      const payload = await apiGet<{ sources: DashboardSources }>(
-        `/api/dashboards/${id}/sources`,
-      );
+      const payload = draft
+        ? await apiSend<{ sources: DashboardSources }>(
+            `/api/dashboards/${id}/sources`,
+            "POST",
+            { doc: draft },
+          )
+        : await apiGet<{ sources: DashboardSources }>(
+            `/api/dashboards/${id}/sources`,
+          );
       setSources(payload.sources);
       setNow(new Date());
     } catch {
@@ -217,9 +233,27 @@ export default function DesignerPage() {
     }
   }, [id]);
 
+  // Which sources the draft binds to — module types, plus the sensor entity and
+  // reminders list that decide WHICH sensor/list is read. Re-fetch only when
+  // this changes, not on every wording or position tweak, so laying out does
+  // not hammer the forecast API or spawn Reminders reads.
+  const bindingKey = useMemo(() => {
+    if (!doc) return "";
+    return doc.modules
+      .map((module) => {
+        const options = module.options as Record<string, unknown>;
+        const entityId = typeof options.entityId === "string" ? options.entityId : "";
+        const list =
+          typeof options.remindersList === "string" ? options.remindersList : "";
+        return `${module.type}:${entityId}:${list}`;
+      })
+      .sort()
+      .join("|");
+  }, [doc]);
+
   useEffect(() => {
     void refreshSources();
-  }, [refreshSources]);
+  }, [refreshSources, bindingKey]);
 
   const problems = useMemo(() => (doc ? layoutProblems(doc) : []), [doc]);
 
@@ -518,6 +552,7 @@ export default function DesignerPage() {
         sources={sources}
         now={now}
         onChange={(options) => updateModule(selected.id, { options })}
+        onFrameChange={(frame) => updateModule(selected.id, { frame })}
       />
       <div className="inspector-foot">
         <Button
