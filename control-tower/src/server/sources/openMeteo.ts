@@ -27,7 +27,9 @@ export function openMeteoUrl(): string | null {
   return (
     `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}` +
     `&longitude=${location.longitude}` +
-    "&hourly=temperature_2m,weather_code&timezone=UTC&forecast_days=3"
+    "&hourly=temperature_2m,weather_code" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+    "&timezone=UTC&forecast_days=7"
   );
 }
 
@@ -69,7 +71,64 @@ const OpenMeteoResponse = z.object({
     temperature_2m: z.array(z.number().nullable()),
     weather_code: z.array(z.number().nullable()),
   }),
+  // The daily block is optional so the hourly-only contract still parses: a
+  // response without it (or the ECCC fallback) simply yields no multi-day
+  // outlook, and the module that wants one renders its unavailable state.
+  daily: z
+    .object({
+      time: z.array(z.string()),
+      weather_code: z.array(z.number().nullable()),
+      temperature_2m_max: z.array(z.number().nullable()),
+      temperature_2m_min: z.array(z.number().nullable()),
+    })
+    .optional(),
 });
+
+/** Uppercase weekday label for a calendar date, e.g. "2026-09-22" → "TUE". */
+const WEEKDAY = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  timeZone: "UTC",
+});
+function weekdayLabel(dateStamp: string): string {
+  // A daily "time" is a bare calendar date; read it at noon UTC so the weekday
+  // is unambiguous, then upper-case the short name the way the strip prints it.
+  const at = new Date(`${dateStamp}T12:00:00Z`);
+  if (Number.isNaN(at.getTime())) return "";
+  return WEEKDAY.format(at).toUpperCase();
+}
+
+/**
+ * The multi-day outlook, one entry per day the API returned. A day is kept only
+ * when it has both a max and a min — a half-populated day is worse than one
+ * fewer column, and never a zero standing in for a missing reading.
+ */
+export function parseOpenMeteoDaily(
+  payload: unknown,
+  limit = 7,
+): import("@/core/render/data").DayForecast[] {
+  const parsed = OpenMeteoResponse.safeParse(payload);
+  if (!parsed.success || !parsed.data.daily) return [];
+  const { time, weather_code: codes, temperature_2m_max: highs, temperature_2m_min: lows } =
+    parsed.data.daily;
+
+  const days: import("@/core/render/data").DayForecast[] = [];
+  for (let i = 0; i < time.length && days.length < limit; i += 1) {
+    const stamp = time[i];
+    const high = highs[i];
+    const low = lows[i];
+    if (stamp === undefined || high === null || high === undefined) continue;
+    if (low === null || low === undefined) continue;
+    const label = weekdayLabel(stamp);
+    if (label.length === 0) continue;
+    days.push({
+      label,
+      condition: conditionForWmoCode(codes[i] ?? -1),
+      high: Math.round(high),
+      low: Math.round(low),
+    });
+  }
+  return days;
+}
 
 /** WMO code mapping, identical to the composer's condition() lookup. */
 export function conditionForWmoCode(code: number): string {
@@ -292,9 +351,11 @@ export async function readOpenMeteo(
         timeoutMs: 20_000,
         headers: { "user-agent": TOWER_USER_AGENT },
       });
+      const value = normalizeWeather(parseOpenMeteo(payload), now);
+      const days = parseOpenMeteoDaily(payload);
       const data: ModuleData<WeatherValue> = {
         state: "ok",
-        value: normalizeWeather(parseOpenMeteo(payload), now),
+        value: days.length > 0 ? { ...value, days } : value,
         observedAt: now.toISOString(),
       };
       cachedForecast = { data, fetchedAt: nowMs };

@@ -109,6 +109,7 @@ describe("module registry", () => {
       "sky",
       "weather24h",
       "weatherHero",
+  "weatherWeek",
       "calendarNext",
       "haSensor",
       "message",

@@ -7,6 +7,7 @@ import {
   normalizeWeather,
   parseEccc,
   parseOpenMeteo,
+  parseOpenMeteoDaily,
   readOpenMeteo,
   resetOpenMeteoCacheForTests,
   type HourlyRow,
@@ -832,6 +833,47 @@ describe("source bindings", () => {
  * once. This is what the designer's POST /sources relies on — the fix for a
  * weather block reading "unavailable" on a Blank composition until first save.
  */
+describe("parseOpenMeteoDaily", () => {
+  const daily = {
+    hourly: { time: [], temperature_2m: [], weather_code: [] },
+    daily: {
+      time: ["2026-09-21", "2026-09-22", "2026-09-23"],
+      weather_code: [0, 3, 61],
+      temperature_2m_max: [24, 21, 17],
+      temperature_2m_min: [13, 12, 10],
+    },
+  };
+
+  it("maps each day to a weekday label, condition and rounded range", () => {
+    const days = parseOpenMeteoDaily(daily);
+    expect(days).toEqual([
+      { label: "MON", condition: "sunny", high: 24, low: 13 },
+      { label: "TUE", condition: "cloudy", high: 21, low: 12 },
+      { label: "WED", condition: "rainy", high: 17, low: 10 },
+    ]);
+  });
+
+  it("respects the day limit", () => {
+    expect(parseOpenMeteoDaily(daily, 2)).toHaveLength(2);
+  });
+
+  it("drops a half-populated day rather than inventing a number", () => {
+    const holey = {
+      ...daily,
+      daily: {
+        ...daily.daily,
+        temperature_2m_max: [24, null, 17],
+      },
+    };
+    const days = parseOpenMeteoDaily(holey);
+    expect(days.map((d) => d.label)).toEqual(["MON", "WED"]);
+  });
+
+  it("returns nothing when the response has no daily block", () => {
+    expect(parseOpenMeteoDaily({ hourly: { time: [], temperature_2m: [], weather_code: [] } })).toEqual([]);
+  });
+});
+
 describe("collectSources binds to the document it is given", () => {
   beforeEach(() => {
     resetOpenMeteoCacheForTests();

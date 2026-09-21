@@ -14,6 +14,16 @@ export const WeatherSlotSchema = z.object({
 });
 export type WeatherSlot = z.infer<typeof WeatherSlotSchema>;
 
+/** One day of the multi-day outlook: a weekday label, a condition, a range. */
+export const DayForecastSchema = z.object({
+  /** Short weekday label, e.g. "TUE". */
+  label: z.string(),
+  condition: z.string(),
+  high: z.number().int(),
+  low: z.number().int(),
+});
+export type DayForecast = z.infer<typeof DayForecastSchema>;
+
 export const WeatherValueSchema = z.object({
   slots: z.array(WeatherSlotSchema).length(4),
   low: z.number().int(),
@@ -25,6 +35,12 @@ export const WeatherValueSchema = z.object({
   locationWarning: z.boolean(),
   /** Condition now, used by the octopus. */
   condition: z.string(),
+  /**
+   * The multi-day outlook, when the source provided one. Optional: the hourly
+   * fallback source has no daily block, and a module that needs days renders an
+   * explicit unavailable state rather than inventing them.
+   */
+  days: z.array(DayForecastSchema).optional(),
 });
 export type WeatherValue = z.infer<typeof WeatherValueSchema>;
 

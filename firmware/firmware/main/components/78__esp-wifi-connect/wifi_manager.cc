@@ -119,8 +119,23 @@ void WifiManager::StartStation() {
         return;
     }
     if (station_active_) {
-        ESP_LOGW(TAG, "Station already active");
-        return;
+        // Already connected: nothing to do — the happy path.
+        if (station_ != nullptr && station_->IsConnected()) {
+            ESP_LOGW(TAG, "Station already active and connected");
+            return;
+        }
+        // Active but NOT associated: the stuck state a stale fast-reconnect
+        // cache leaves behind (the AP changed channel or BSSID, so the cached
+        // direct connect loops and never settles). A plain no-op here is why a
+        // button press or the Settings Wi-Fi toggle could never recover it.
+        // Purge the cache, tear the station down, and fall through to a clean
+        // restart — the full-scan cold-boot path that connects successfully.
+        ESP_LOGW(TAG, "Station active but not connected; clean restart to recover");
+        if (station_ != nullptr) {
+            station_->ClearFastReconnectCache("stuck_recover");
+            station_->Stop();
+        }
+        station_active_ = false;
     }
 
     // Auto-stop config AP if active

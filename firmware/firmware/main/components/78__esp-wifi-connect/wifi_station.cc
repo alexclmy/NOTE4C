@@ -1266,6 +1266,12 @@ void WifiStation::HandleFastFallback(const char* reason, int reason_id) {
              static_cast<long long>(t_ms), reason ? reason : "unknown", reason_id, fast_fail_count_,
              force_scan_ ? 1 : 0);
     if (reason_id >= 0) {
+        // A fast reconnect that fails with a real disconnect reason usually
+        // means the cached BSSID/channel is stale — the AP moved channel. Purge
+        // the cache so this scan, and any following cold boot, starts clean
+        // rather than looping on the dead direct connect (the stuck "active but
+        // never associated" state the tower sees as an unreachable panel).
+        WifiManager::GetInstance().ClearFastReconnectCache("fast_reason_stale");
         ESP_LOGI(FAST_RC_TAG, "stage=wifi event=fast_fallback_action action=scan");
         esp_wifi_scan_start(nullptr, false);
         if (on_scan_begin_) {
